@@ -1,0 +1,29 @@
+# --- Build Directories ---
+/build/**
+/rom/**
+
+# --- Verilator Specifics ---
+# Verilator often generates .d (dependency) files and .dat files
+*.d
+*.dat
+*.tree
+*.dot
+**/_gen/*
+
+# --- C++ Compiled Artifacts ---
+*.o
+*.a
+*.so
+*.out
+*.exe
+
+# --- IDE and OS Junk ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+# --- Agent tooling (local, per-user) ---
+.claude/settings.local.json
+
+# --- Project logs ---
+debug_writer.log

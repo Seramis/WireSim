@@ -1,0 +1,44 @@
+---
+BasedOnStyle: LLVM
+
+# Use tabs for indentation
+UseTab: Always
+
+# Set the width of the tab (usually 4 or 8)
+TabWidth: 4
+
+# Target line length before wrapping
+ColumnLimit: 120
+
+# Ensures that indentation used for alignment also uses tabs
+IndentWidth: 4
+
+# Keeps opening braces attached to the same line (namespaces, classes, functions, control statements)
+BreakBeforeBraces: Attach
+
+# Puts the closing bracket on its own line, indented to match the line with the opening bracket
+AlignAfterOpenBracket: BlockIndent
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortCaseLabelsOnASingleLine: true
+
+# If a braced block has any content, that content must start on the next line.
+# Empty braces ({}) are still allowed to collapse since there is no content to break out.
+# Note: this never merges a body down to one line, even if it's short and would fit --
+# clang-format's merge options can't condition on how the author originally wrote it.
+AllowShortLambdasOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortEnumsOnASingleLine: false
+AllowShortCompoundRequirementOnASingleLine: false
+
+# Required for some versions of Clang-Format to ensure the bracket doesn't "hug" the last arg
+BinPackArguments: false
+BinPackParameters: false
+
+# Binds * (and & via ReferenceAlignment: Pointer) to the type, not the variable name
+PointerAlignment: Left
+
+# Indents case labels one level deeper than their switch
+IndentCaseLabels: true
+
+# Keeps the constructor initializer colon on the same line as the constructor signature
+BreakConstructorInitializers: AfterColon

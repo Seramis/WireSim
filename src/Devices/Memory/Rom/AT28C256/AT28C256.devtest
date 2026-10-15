@@ -1,0 +1,43 @@
+# Smoke test for AT28C256: reads back its constructor-supplied contents,
+# returns 0xFF for unprogrammed bytes, releases the data bus to F once
+# deselected or output-disabled, and silently ignores a write attempt (its
+# contents are immutable -- see AT28C256.md). See src/Testing/DeviceHarness.md
+# for the script grammar.
+device AT28C256 contents=HI
+
+print TAG=rom-read-programmed-bytes
+drive NotCE = L
+drive NotOE = L
+drive NotWE = H
+drive A = 0x0000
+step
+expect D = 0x48
+drive A = 0x0001
+step
+expect D = 0x49
+
+print TAG=rom-read-unprogrammed-is-ff
+drive A = 0x7fff
+step
+expect D = 0xff
+
+print TAG=rom-deselect-releases-bus
+drive NotCE = H
+step
+expect D = F
+
+print TAG=rom-output-disable-releases-bus
+drive NotCE = L
+drive NotOE = H
+step
+expect D = F
+
+print TAG=rom-write-attempt-ignored
+drive NotOE = H
+drive NotWE = L
+drive A = 0x0000
+step
+drive NotWE = H
+drive NotOE = L
+step
+expect D = 0x48

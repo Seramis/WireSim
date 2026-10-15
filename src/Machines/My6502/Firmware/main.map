@@ -1,0 +1,34 @@
+Modules list:
+-------------
+main.o:
+    ZEROPAGE          Offs=000000  Size=000002  Align=00001  Fill=0000
+    KERNEL            Offs=000000  Size=000355  Align=00001  Fill=0000
+    VECTORS           Offs=000000  Size=000006  Align=00001  Fill=0000
+    BANK1             Offs=000000  Size=000140  Align=00001  Fill=0000
+    DEBUGCFG          Offs=000000  Size=000003  Align=00001  Fill=0000
+
+
+Segment list:
+-------------
+Name                   Start     End    Size  Align
+----------------------------------------------------
+ZEROPAGE              000000  000001  000002  00001
+BANK1                 004000  00413F  000140  00001
+DEBUGCFG              00BFFD  00BFFF  000003  00001
+KERNEL                00C100  00C454  000355  00001
+VECTORS               00FFFA  00FFFF  000006  00001
+
+
+Exports list by name:
+---------------------
+
+
+
+Exports list by value:
+----------------------
+
+
+
+Imports list:
+-------------
+

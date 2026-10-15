@@ -1,0 +1,289 @@
+# Regression smoke test for W65C51N: Command/Control register round trip,
+# Programmed Reset, hardware RESB reset, Status Register's DSRB/DCDB mirror
+# and its edge-triggered interrupt, and DTRB/RTSB tracking the Command
+# Register. See W65C51N.md's "What W65C51N.devtest actually exercises" for
+# what is deliberately NOT covered here (the RDR/overrun receive path, which
+# needs a real Terminal-connected peer -- out of DeviceHarness's single-device
+# scope). The registration shim supplies that peer: `rx=` bytes are fed to
+# the ACIA one per rising edge on HostSend, HostRTS is the peer's own RTS, and
+# the peer's counters are readable with `expect reg`.
+device W65C51N rx=AB
+
+drive RESB = H
+drive CS0 = H
+drive CS1B = L
+drive CTSB = L
+drive DCDB = L
+drive DSRB = L
+drive RWB = H
+drive RS0 = L
+drive RS1 = L
+drive PHI2 = L
+step
+
+print SECTION=control-register-round-trip
+drive RS0 = H
+drive RS1 = H
+drive RWB = L
+drive D = 0x3C
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x3C
+drive PHI2 = L
+step
+
+print SECTION=command-register-round-trip
+drive RS0 = L
+drive RS1 = H
+drive RWB = L
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0xFF
+drive PHI2 = L
+step
+expect DTRB = L # Command bit0 (DTR) = 1 -> DTRB asserted (ready)
+expect RTSB = L # REM (bit4) and TIC (bit3) both set -> RTSB wants low, RDR has room
+
+print SECTION=programmed-reset-clears-command-bits4-0
+drive RS0 = H
+drive RS1 = L
+drive RWB = L
+drive D = 0x00 # don't-care per the datasheet
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+
+print SECTION=command-register-after-programmed-reset
+drive RS0 = L
+drive RS1 = H
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0xE0 # bits 4-0 cleared; bits 7-5 (PMC/PME) untouched by a Programmed Reset
+drive PHI2 = L
+step
+expect DTRB = H # DTR now 0 -> DTRB deasserted
+expect RTSB = H # REM and TIC bits now 0 -> RTSB deasserted
+
+print SECTION=control-register-unchanged-by-programmed-reset
+drive RS0 = H
+drive RS1 = H
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x3C # Control Register is untouched by a Programmed Reset
+drive PHI2 = L
+step
+
+print SECTION=status-register-baseline
+drive RS0 = H
+drive RS1 = L
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x10 # TDRE always 1; DSRB/DCDB both held low (ready/detected); no IRQ yet
+drive PHI2 = L
+step
+expect IRQB = F # open-drain, idle -- no external pull-up modeled, so idle reads floating, not H
+
+print SECTION=dcdb-change-raises-interrupt
+drive DCDB = H
+step
+expect IRQB = L # IRD (Command bit1) is 0 -> DCDB edge enabled
+
+print SECTION=status-register-after-dcdb-change
+drive RS0 = H
+drive RS1 = L
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0xB0 # TDRE(0x10) | DCDB-not-detected(0x20) | IRQ(0x80)
+drive PHI2 = L
+step
+expect IRQB = F # Status Register read clears the latched IRQ bit -> floats again
+
+print SECTION=hardware-reset-clears-registers
+drive DCDB = L # back to a known baseline before resetting
+step
+drive RESB = L
+step
+drive RESB = H
+step
+
+print SECTION=command-register-after-hardware-reset
+drive RS0 = L
+drive RS1 = H
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x00
+drive PHI2 = L
+step
+
+print SECTION=control-register-after-hardware-reset
+drive RS0 = H
+drive RS1 = H
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x00
+drive PHI2 = L
+step
+
+print SECTION=status-register-after-hardware-reset
+drive RS0 = H
+drive RS1 = L
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x10 # only TDRE set; IRQ cleared by Reset(); DCDB/DSRB both low again
+drive PHI2 = L
+step
+expect IRQB = F
+
+print SECTION=tdr-write-with-ctsb-high-is-dropped-no-contention
+drive CTSB = H
+drive RS0 = L
+drive RS1 = L
+drive RWB = L
+drive D = 0x58
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive CTSB = L
+
+print SECTION=tdr-write-with-ctsb-low-no-contention
+drive D = 0x41
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+clear D
+
+print SECTION=transmitted-byte-reaches-the-peer
+sleep 50
+expect reg.TxBytes = 1 # only the CTSB-low write above; the CTSB-high one was dropped
+expect reg.TxLast = 0x41
+
+print SECTION=rts-follows-tic-bits-not-echo-bit
+drive RS0 = L
+drive RS1 = H
+drive RWB = L
+drive D = 0x10 # REM only: TIC = 00 -> RTSB high
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+expect RTSB = H
+expect reg.AciaRtsReady = 0
+drive D = 0x08 # TIC = 10 -> RTSB low
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+step # RTSB, written by the commit, resolves one cycle later
+expect RTSB = L
+expect reg.AciaRtsReady = 1 # announced to the peer
+
+print SECTION=received-byte-drops-rts-and-holds-the-next-byte
+drive HostSend = L
+step
+drive HostSend = H # feeds 'A'
+step
+sleep 50
+expect reg.AciaRtsReady = 0 # announced from the receive path, before any bus cycle
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+expect RTSB = H # RDR full
+drive HostSend = L
+step
+drive HostSend = H # feeds 'B' while RDR still holds 'A'
+step
+sleep 50
+drive RS0 = H
+drive RS1 = L
+clear D
+drive RWB = H
+drive PHI2 = H
+step
+expect D = 0x18 # TDRE | RDRF; OVRN stays 0 although 'B' arrived
+drive PHI2 = L
+step
+
+print SECTION=reading-rdr-releases-the-held-byte
+drive RS0 = L
+drive RS1 = L
+drive PHI2 = H
+step
+expect D = 0x41
+drive PHI2 = L
+step
+sleep 50 # 'B' lands now that RDR is free
+drive PHI2 = H
+step
+expect D = 0x42
+drive PHI2 = L
+step
+expect RTSB = L # RDR empty again
+expect reg.AciaRtsReady = 1
+
+print SECTION=status-after-both-bytes-consumed
+drive RS0 = H
+drive RS1 = L
+clear D
+drive PHI2 = H
+step
+expect D = 0x10 # RDRF clear, OVRN still 0
+drive PHI2 = L
+step
+
+print SECTION=peer-rts-gates-transmitter
+drive HostRTS = L # the terminal is not ready to receive
+step
+drive RS0 = L
+drive RS1 = L
+drive RWB = L
+drive D = 0x42
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+sleep 50
+expect reg.TxBytes = 1 # dropped
+drive HostRTS = H
+step
+drive D = 0x43
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+sleep 50
+expect reg.TxBytes = 2
+expect reg.TxLast = 0x43
+clear D

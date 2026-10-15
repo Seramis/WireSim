@@ -1,0 +1,34 @@
+# Smoke test for ParallelSram: a fresh chip reads zero, a write-then-read
+# round trips the byte, and the data bus releases to F once deselected. See
+# src/Testing/DeviceHarness.md for the script grammar.
+device ParallelSram addrWidth=11 dataWidth=8
+
+print TAG=sram-read-before-write
+drive NotCE = L
+drive NotOE = L
+drive A = 0x100
+step
+expect D = 0x00
+
+print TAG=sram-write-then-read
+drive NotOE = H
+drive NotWE = L
+drive A = 0x100
+drive D = 0xAB
+step
+clear D
+drive NotWE = H
+step
+drive NotOE = L
+step
+expect D = 0xAB
+
+print TAG=sram-deselect-releases-bus
+drive NotCE = H
+step
+expect D = F
+
+print TAG=sram-poke-peek-via-IMemoryInspectable
+poke 0x50 0x7F
+expect mem[0x50] = 0x7F
+peek 0x50

@@ -1,0 +1,178 @@
+# Hd44780 regression smoke test: 8-bit mode register map, DDRAM addressing,
+# CGRAM, and the 4-bit nibble protocol -- see Hd44780.md.
+device Hd44780 variant=1602 colorScheme=green
+drive RW = L
+drive E = L
+
+print SECTION=8bit-instruction-decode-and-busy-address-read
+
+# Entry mode set: I/D=1 (increment), S=0.
+drive RS = L
+drive DB = 0x06
+drive E = H
+step
+drive E = L
+step
+
+# Display on/off control: D=1, C=1, B=0.
+drive DB = 0x0E
+drive E = H
+step
+drive E = L
+step
+
+# Set DDRAM address 0x05.
+drive DB = 0x85
+drive E = H
+step
+drive E = L
+step
+
+# Read busy flag & address: BF must be 0, AC must read back 0x05, and the
+# read must not disturb the address counter.
+drive RW = H
+clear DB
+drive E = H
+step
+expect DB = 0x05 # BF=0 (bit7 clear) and AC=0x05
+drive E = L
+drive RW = L
+step
+
+print SECTION=ddram-write-read-and-autoincrement
+
+drive DB = 0x80 # Set DDRAM address 0
+drive E = H
+step
+drive E = L
+step
+
+drive RS = H
+drive DB = 0x41 # 'A' -> DDRAM[0], AC autoincrements to 1
+drive E = H
+step
+drive E = L
+step
+
+drive DB = 0x42 # 'B' -> DDRAM[1], AC autoincrements to 2
+drive E = H
+step
+drive E = L
+step
+
+# Re-point AC at address 1 and verify it reads back 'B'.
+drive RS = L
+drive RW = L
+drive DB = 0x81 # Set DDRAM address 1
+drive E = H
+step
+drive E = L
+step
+
+drive RS = H
+drive RW = H
+clear DB
+drive E = H
+step
+expect DB = 0x42
+drive E = L
+step
+
+print SECTION=cgram-custom-character
+
+drive RS = L
+drive RW = L
+drive DB = 0x40 # Set CGRAM address 0 (character 0, row 0)
+drive E = H
+step
+drive E = L
+step
+
+drive RS = H
+drive DB = 0x1F # all 5 dots lit
+drive E = H
+step
+drive E = L
+step
+
+drive RS = L
+drive RW = L
+drive DB = 0x40 # Set CGRAM address 0 again to read row 0 back
+drive E = H
+step
+drive E = L
+step
+
+drive RS = H
+drive RW = H
+clear DB
+drive E = H
+step
+expect DB = 0x1F
+drive E = L
+step
+
+print SECTION=4bit-nibble-protocol
+
+drive RS = L
+drive RW = L
+drive DB = 0x20 # Function set, high nibble only: DL=0 -> switch to 4-bit mode
+drive E = H
+step
+drive E = L
+step
+
+# Now in 4-bit mode: "Set DDRAM address 3" (byte 0x83) sent as two nibbles,
+# high nibble (0x8) on DB7:4 first, then low nibble (0x3) on DB7:4.
+drive DB = 0x80
+drive E = H
+step
+drive E = L
+step
+drive DB = 0x30
+drive E = H
+step
+drive E = L
+step
+
+# Write 'Z' (0x5A) as high nibble 0x5 then low nibble 0xA, both on DB7:4.
+drive RS = H
+drive DB = 0x50
+drive E = H
+step
+drive E = L
+step
+drive DB = 0xA0
+drive E = H
+step
+drive E = L
+step
+
+# The write auto-incremented AC to 4; re-point it at 3 (same two-nibble
+# instruction as above) before reading it back.
+drive RS = L
+drive DB = 0x80
+drive E = H
+step
+drive E = L
+step
+drive DB = 0x30
+drive E = H
+step
+drive E = L
+step
+
+# Read DDRAM[3] back, high nibble then low nibble, both presented on DB7:4.
+drive RS = H
+drive RW = H
+clear DB
+drive E = H
+step
+expect DB = 0x50 # high nibble of 'Z' (0x5A)
+drive E = L
+step
+drive E = H
+step
+expect DB = 0xA0 # low nibble of 'Z'
+drive E = L
+step

@@ -1,0 +1,293 @@
+# Smoke test for ST16C550: selects the chip, writes the Scratch Pad
+# Register (addr 7) and reads it back -- the simplest register-level
+# round trip that needs no RX/TX transport wiring at all. See
+# src/Testing/DeviceHarness.md for the script grammar.
+device ST16C550
+
+print TAG=uart-select-and-write-spr
+drive CS0 = H
+drive CS1 = H
+drive NotCS2 = L
+drive A = 7
+drive D = 0xA5
+drive IOW = H
+step
+
+print TAG=uart-read-spr-back
+clear D
+drive IOW = L
+step
+drive IOR = H
+step
+expect D = 0xA5
+
+print TAG=uart-dumpregs-reflects-spr-write
+dumpregs
+expect reg.SPR = 0xA5
+expect reg.RxFifoSize = 0
+
+print TAG=uart-deselect-releases-bus
+drive IOR = L
+step
+expect D = F
+
+# Everything below exercises MCR.LOOP (bit 4, see ST16C550.md's "Loopback"
+# section): WriteTHR() feeds _rxFifo directly instead of going out over a
+# Terminal transport, which makes FIFO/overrun/interrupt behavior reachable
+# through register access alone -- no wired-up TX/RX stub pins needed.
+
+print TAG=uart-non-loopback-write-thr-does-not-fill-rxfifo
+drive A = 0
+drive D = 0x55
+drive IOW = H
+step
+drive IOW = L
+step
+clear D
+drive A = 5
+drive IOR = H
+step
+expect D = 0x60
+drive IOR = L
+step
+
+print TAG=uart-loopback-enable-mcr
+drive A = 4
+drive D = 0x10
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-readback-mcr
+clear D
+drive A = 4
+drive IOR = H
+step
+expect D = 0x10
+drive IOR = L
+step
+
+print TAG=uart-loopback-write-thr
+drive A = 0
+drive D = 0x42
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-lsr-rda-set
+clear D
+drive A = 5
+drive IOR = H
+step
+expect D = 0x61
+drive IOR = L
+step
+
+print TAG=uart-loopback-read-rhr-matches-write
+clear D
+drive A = 0
+drive IOR = H
+step
+expect D = 0x42
+drive IOR = L
+step
+
+print TAG=uart-loopback-lsr-rda-clears-after-drain
+clear D
+drive A = 5
+drive IOR = H
+step
+expect D = 0x60
+drive IOR = L
+step
+
+print TAG=uart-loopback-mcr-full-outputs
+drive A = 4
+drive D = 0x1F
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-msr-mirrors-mcr-outputs
+clear D
+drive A = 6
+drive IOR = H
+step
+expect D = 0xF0
+drive IOR = L
+step
+
+print TAG=uart-loopback-mcr-reset-outputs
+drive A = 4
+drive D = 0x10
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-enable-rda-interrupt
+drive A = 1
+drive D = 0x01
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-write-triggers-interrupt
+drive A = 0
+drive D = 0x7E
+drive IOW = H
+step
+expect INT = H
+drive IOW = L
+step
+
+print TAG=uart-loopback-drain-clears-interrupt
+clear D
+drive A = 0
+drive IOR = H
+step
+expect D = 0x7E
+expect INT = L
+drive IOR = L
+step
+
+print TAG=uart-loopback-disable-interrupt
+drive A = 1
+drive D = 0x00
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-fill-fifo-to-capacity
+drive A = 0
+drive D = 0x00
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x01
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x02
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x03
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x04
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x05
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x06
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x07
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x08
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x09
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0A
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0B
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0C
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0D
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0E
+drive IOW = H
+step
+drive IOW = L
+step
+drive D = 0x0F
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-loopback-fifo-full-no-overrun-yet
+clear D
+drive A = 5
+drive IOR = H
+step
+expect D = 0x61
+drive IOR = L
+step
+
+print TAG=uart-dumpregs-reflects-full-fifo
+expect reg.RxFifoSize = 16
+expect reg.MCR = 0x10
+expect reg.OverrunError = 0
+
+print TAG=uart-loopback-overflow-write-sets-overrun
+drive A = 0
+drive D = 0xFF
+drive IOW = H
+step
+drive IOW = L
+step
+
+print TAG=uart-dumpregs-reflects-overrun-before-lsr-clears-it
+dumpregs
+expect reg.OverrunError = 1
+expect reg.RxFifoSize = 16
+
+print TAG=uart-read-lsr-clears-overrun
+clear D
+drive A = 5
+drive IOR = H
+step
+expect D = 0x63
+drive IOR = L
+step
+expect reg.OverrunError = 0
+
+print TAG=uart-loopback-overflow-keeps-oldest-byte
+clear D
+drive A = 0
+drive IOR = H
+step
+expect D = 0x00
+drive IOR = L
+step

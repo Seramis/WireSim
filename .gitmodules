@@ -1,0 +1,3 @@
+[submodule "src/Machines/BenEater6502/vendor/msbasic"]
+	path = src/Machines/BenEater6502/vendor/msbasic
+	url = https://github.com/beneater/msbasic.git

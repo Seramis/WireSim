@@ -1,0 +1,23 @@
+# Smoke test for Register8 (the Verilog-wrapped transparent latch): a write
+# while enabled latches the value, a later read reflects it, and the bus
+# releases to F once deselected. See src/Testing/DeviceHarness.md.
+device Register8
+
+print TAG=register8-latch-while-enabled
+drive NotCE = L
+drive NotOE = H
+drive NotWE = L
+drive D = 0x3C
+step
+
+print TAG=register8-read-back
+clear D
+drive NotWE = H
+drive NotOE = L
+step
+expect D = 0x3C
+
+print TAG=register8-deselect-releases-bus
+drive NotCE = H
+step
+expect D = F

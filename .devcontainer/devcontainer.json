@@ -1,0 +1,77 @@
+{
+    "name": "WireSim",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "args": {
+            "USER_UID": "1000",
+            "USER_GID": "1000"
+        }
+    },
+    "remoteUser": "dev",
+    // Rootless Podman: map the invoking host user onto the image's uid/gid
+    // 1000 so it owns the bind-mounted Wayland socket below. keep-groups
+    // carries host supplementary groups (video/render) into the container
+    // by gid, without needing matching group names in /etc/group. DRI
+    // access enables real GPU accel for the SDL2 renderer instead of
+    // falling back to llvmpipe. label=disable skips SELinux relabeling of
+    // the live XDG_RUNTIME_DIR (relabeling it in place would affect every
+    // other app using it on the host).
+    "runArgs": [
+        "--userns=keep-id:uid=1000,gid=1000",
+        "--group-add=keep-groups",
+        "--security-opt=label=disable",
+        "--device=/dev/dri"
+    ],
+    // Bind the host's live Wayland socket and XWayland fallback socket
+    // directory in at identical paths, so WAYLAND_DISPLAY/DISPLAY resolve
+    // the same way inside the container as outside it.
+    //
+    // The last two mounts share the host's already-authenticated Claude
+    // Code login (OAuth tokens in ~/.claude/.credentials.json, account/
+    // trust config in ~/.claude.json) so the container doesn't need its
+    // own separate login. They're bind-mounted at runtime, never copied
+    // into the image, and land at /home/dev/* since the container user's
+    // $HOME differs from the host user's. See .devcontainer/README.md.
+    "mounts": [
+        "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind",
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+        "source=${localEnv:HOME}/.claude,target=/home/dev/.claude,type=bind",
+        "source=${localEnv:HOME}/.claude.json,target=/home/dev/.claude.json,type=bind"
+    ],
+    "containerEnv": {
+        "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+        "DISPLAY": "${localEnv:DISPLAY}",
+        // Try native Wayland first, fall back to XWayland/X11 -- covers
+        // both this machine (Fedora KDE/Wayland) and other Linux hosts.
+        "SDL_VIDEODRIVER": "wayland,x11"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "C_Cpp.intelliSenseEngine": "disabled",
+                "clangd.path": "clangd",
+                "clangd.arguments": [
+                    "--background-index",
+                    "--header-insertion=never"
+                ],
+                // Presets in CMakePresets.json; the status-bar Debug button
+                // launches the selected target under gdb.
+                "cmake.useCMakePresets": "always",
+                "cmake.debugConfig": {
+                    "type": "cppdbg",
+                    "MIMode": "gdb",
+                    "stopAtEntry": false
+                }
+            },
+            "extensions": [
+                "llvm-vs-code-extensions.vscode-clangd",
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools",
+                "Anthropic.claude-code",
+                "tlgkccampbell.code-ca65",
+                "mshr-h.veriloghdl"
+            ]
+        }
+    }
+}

@@ -1,0 +1,58 @@
+# MachineHarness regression test for BenEater6502: boots a small wiring-test
+# image (Firmware/machinetest.s, not Microsoft BASIC) that pushes values
+# through every decoded window via the real CPU/bus, then parks.
+# This proves Chipset's decode and the shared-bus wiring, not any device's own
+# register semantics (that is each device's .devtest):
+#   - SRAM at its top ($3FFF), and nothing answering in the unmapped gap around
+#     the ACIA ($5000) and VIA ($6000) windows: a write there reads back as 0.
+#   - ACIA control/command/status registers, incl. $500B aliasing to control.
+#   - VIA port/direction/T1-latch registers.
+#   - EEPROM reads at $8000/$FFFC and ignored writes.
+#   - VIA /IRQ -> CPU /IRQ (Timer 1 time-out, serviced by an IRQ handler).
+# The ACIA -> /IRQ path and the LCD/console are exercised by hand through the
+# TCP console; see AGENTS.md.
+#
+# Run it with `ctest --test-dir build/<preset> -R machinetest.BenEater6502` (or
+# the `check` target, which builds everything first). CMake assembles the image
+# (Firmware/machinetest.s) to <build dir>/rom/BenEater6502-machinetest, and the
+# test runs from the build directory so the `rom=` path below resolves. By hand:
+#
+#   cd build/release && ./MachineHarness ../../src/Machines/BenEater6502/BenEater6502.machinetest
+
+machine BenEater6502 rom=rom/BenEater6502-machinetest
+
+print SECTION=boot-and-wiring-image
+run 3000
+
+print SECTION=sram-and-unmapped-gap
+expect ram[0x200] = 0xA5
+expect ram[0x201] = 0x44
+expect ram[0x202] = 0x00
+expect ram[0x203] = 0x00
+
+print SECTION=acia-registers
+expect ram[0x210] = 0x1F
+expect ram[0x211] = 0x03
+expect ram[0x212] = 0x1F
+expect ram[0x213] = 0x10
+
+print SECTION=via-registers
+expect ram[0x220] = 0x0A
+expect ram[0x221] = 0xFF
+expect ram[0x222] = 0x01
+expect ram[0x223] = 0x34
+expect ram[0x224] = 0x00
+
+print SECTION=eeprom-reads-and-ignored-write
+expect ram[0x230] = 0x5A
+expect ram[0x231] = 0x5A
+expect ram[0x232] = 0x02
+expect ram[0x233] = 0x80
+
+print SECTION=via-irq-reaches-cpu-exactly-once
+expect ram[0x240] = 0x01
+
+print SECTION=image-ran-to-completion
+expect ram[0x241] = 0x77
+
+dump cpu

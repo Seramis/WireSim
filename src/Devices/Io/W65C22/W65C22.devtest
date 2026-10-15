@@ -1,0 +1,509 @@
+# Regression smoke test for W65C22 (built with the default S variant and
+# ClkPin timer clock source -- see W65C22.md's "Variant" and "Timer clock
+# source" for why the N variant and InternalThread construction modes
+# aren't exercised here). Covers: DDR-gated
+# PA passthrough/output, T1 one-shot (load/fire/wrap/no-refire), T1 free-run
+# PB7 square wave, T2 one-shot and PB6 pulse-counting, CA1/CA2 handshake
+# output, Shift Register PHI2-clocked shift-out with 8-shift stop, and a
+# RESB hardware reset that preserves T1/T2/SR but clears everything else.
+#
+# Register-read checks via D settle combinationally within the same PHI2
+# high phase (no extra step needed). A value only ever written during the
+# STABLE/Commit branch (PB7, CA2/CB1/CB2 levels, IRQB) resolves one cycle
+# later -- see W65C22.md's "Known simplifications" for why, and note the
+# extra `step` before those `expect`s below.
+device W65C22
+drive RESB = H
+drive CS1 = H
+drive CS2B = L
+drive RWB = H
+drive PHI2 = L
+drive CA1 = L
+drive CA2 = L
+drive CB1 = L
+drive CB2 = L
+clear PA
+clear PB
+step
+
+print SECTION=ddra-output
+drive RS = 3
+drive RWB = L
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 1
+drive D = 0x5A
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+clear PA
+step
+expect PA = 0x5A
+
+print SECTION=ddra-input-passthrough
+drive RS = 3
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PA = 0xC3
+step
+drive RS = 1
+drive RWB = H
+clear D
+drive PHI2 = H
+step
+expect D = 0xC3
+drive PHI2 = L
+step
+
+print SECTION=t1-one-shot-load-and-fire
+drive RS = 4
+drive RWB = L
+drive D = 0x05
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 5
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x40 T1_IFR_SET_AFTER_5_TICKS
+drive PHI2 = L
+step
+
+print SECTION=t1-read-t1cl-clears-flag-and-wraps
+drive RS = 4
+clear D
+drive PHI2 = H
+step
+expect D = 0xFF WRAPPED_LOW_BYTE_AFTER_ONE_MORE_TICK
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x00 IFR6_CLEARED_BY_T1CL_READ
+drive PHI2 = L
+step
+
+print SECTION=t1-one-shot-does-not-refire-while-wrapping
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x00 STILL_NO_REFIRE
+drive PHI2 = L
+step
+
+print SECTION=t1-freerun-square-wave-pb7
+drive RS = 11
+drive RWB = L
+drive D = 0xC0
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 2
+drive D = 0x80
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 4
+drive D = 0x03
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+clear PB
+drive RS = 5
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+expect PB = 0x00 PB7_LOW_VISIBLE_ONE_CYCLE_AFTER_LOAD
+
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+expect PB = 0x80 PB7_HIGH_AFTER_3_TICKS
+
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+expect PB = 0x00 PB7_LOW_AFTER_3_MORE_TICKS
+clear PB
+
+print SECTION=quiesce-t1-before-t2-tests
+# T1 keeps free-running regardless of what else the script does next (Tick()
+# always runs T1 every falling edge); reload it with the largest possible
+# latch and switch back to one-shot/PB7-disabled so it can't reach zero
+# again (and re-contaminate IFR6) within this script's remaining tick count.
+drive RWB = L
+drive RS = 11
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 2
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 4
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 5
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x00 T1_FLAG_CLEAR_AFTER_QUIESCE
+drive PHI2 = L
+step
+
+print SECTION=t2-one-shot
+drive RWB = L
+drive RS = 2
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 8
+drive D = 0x02
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 9
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x20 T2_IFR_SET_AFTER_2_TICKS
+drive PHI2 = L
+step
+
+print SECTION=t2-pulse-counting-pb6
+drive RWB = L
+drive RS = 11
+drive D = 0x20
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 8
+drive D = 0x02
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 9
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 13
+drive PHI2 = H
+step
+expect D = 0x00 T2_IFR_CLEARED_ON_LOAD
+drive PHI2 = L
+step
+
+drive PB = 0xFF
+step
+drive PB = 0xBF
+step
+drive PB = 0xFF
+step
+drive PB = 0xBF
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x20 T2_IFR_SET_AFTER_2_PB6_PULSES
+drive PHI2 = L
+step
+clear PB
+
+print SECTION=ca2-handshake-output-on-ora-access
+drive RWB = L
+drive RS = 12
+drive D = 0x08
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive CA1 = H
+clear CA2
+drive RS = 1
+drive D = 0x11
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive PHI2 = H
+step
+expect CA2 = L ASSERTED_VISIBLE_NEXT_CYCLE
+drive PHI2 = L
+step
+
+drive CA1 = L
+step
+expect CA2 = H DEASSERTED_BY_CA1_NEGATIVE_EDGE
+
+print SECTION=shift-out-phi2-mode-rotation-and-8shift-stop
+# Clear stale IFR bits left set by earlier sections (T2's one-shot flag,
+# CA1's handshake-test edge) that would otherwise contaminate the IFR byte
+# checked below -- a direct IFR write (logic-1 clears) is the general way
+# to do this, distinct from each flag's own register-specific clear-on-read.
+drive RWB = L
+drive RS = 13
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+
+drive RS = 11
+drive D = 0x18
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+clear CB1
+clear CB2
+drive RS = 10
+drive D = 0xA5
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RWB = H
+clear D
+drive RS = 15
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 13
+clear D
+drive PHI2 = H
+step
+expect D = 0x04 SR_IFR_SET_AFTER_8_SHIFTS
+drive PHI2 = L
+step
+
+print SECTION=shift-stops-after-8-until-rearmed
+# Two more ticks attempt shifts #9/#10; since the mode caps at 8 until an SR
+# access re-arms it, neither should move the register -- checked by reading
+# SR only once, at the end, for exactly the original rotated-back value.
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 10
+clear D
+drive PHI2 = H
+step
+expect D = 0xA5 SR_ROTATED_BACK_AND_CAPPED_AT_8
+drive PHI2 = L
+step
+
+print SECTION=quiesce-sr-before-reset-test
+# The SR read above re-armed the 8-shift counter, and every subsequent PHI2
+# falling edge ticks the shift divider regardless of which register is
+# being accessed -- even a read that only means to inspect SR causes one
+# more real shift on its own trailing edge (consistent with 2.12.4's "reset
+# the counter to begin counting another eight pulses", timed to the very
+# next clock). Disabling SR mode first makes TickShiftDivider a no-op on
+# every following tick, so a freshly written canary byte survives
+# unperturbed into the reset test below.
+drive RWB = L
+drive RS = 11
+drive D = 0x00
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RS = 10
+drive D = 0x3C
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+
+print SECTION=hardware-reset
+drive RWB = L
+drive RS = 14
+drive D = 0xFF
+drive PHI2 = H
+step
+drive PHI2 = L
+step
+drive RESB = L
+step
+drive RESB = H
+step
+drive RWB = H
+clear D
+drive RS = 11
+drive PHI2 = H
+step
+expect D = 0x00 ACR_CLEARED_BY_RESET
+drive PHI2 = L
+step
+drive RS = 14
+clear D
+drive PHI2 = H
+step
+expect D = 0x80 IER_CLEARED_BY_RESET
+drive PHI2 = L
+step
+drive RS = 10
+clear D
+drive PHI2 = H
+step
+expect D = 0x3C SR_NOT_CLEARED_BY_RESET
+drive PHI2 = L
+step

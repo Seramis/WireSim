@@ -1,0 +1,50 @@
+# Regression smoke test for BusTerminal: NotCE gating, D releasing to
+# high-Z when deselected, a read with an empty receive queue returning
+# 0x00, and a write strobe completing cleanly with no contention. See
+# BusTerminal.md's "Test coverage" for what this deliberately does NOT
+# cover (a non-empty receive queue advancing across NotOE strobes, and a
+# byte actually reaching a connected Terminal listener) -- both need a
+# real connected peer, out of DeviceHarness's single-device scope.
+device BusTerminal
+
+drive NotCE = H
+drive NotOE = H
+drive NotWE = H
+clear D
+step
+
+print SECTION=deselected-releases-bus
+expect D = F
+
+print SECTION=empty-read-returns-nul
+drive NotCE = L
+drive NotOE = L
+step
+expect D = 0x00
+
+print SECTION=second-oe-strobe-still-nul-when-empty
+drive NotOE = H
+step
+expect D = F
+drive NotOE = L
+step
+expect D = 0x00
+
+print SECTION=deselecting-ce-releases-bus
+drive NotCE = H
+drive NotOE = H
+step
+expect D = F
+
+print SECTION=write-strobe-no-contention
+drive NotCE = L
+drive D = 0x41
+drive NotWE = L
+step
+step
+drive NotWE = H
+step
+clear D
+drive NotCE = H
+step
+expect D = F

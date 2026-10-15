@@ -1,0 +1,116 @@
+# Digital Logic Simulator Harness: Functional Specification
+
+This document defines the requirements for a high-performance, discrete-event digital logic simulator harness. The system is designed to simulate complex digital circuits at extreme frequencies (targeting 100+ MHz) by utilizing a **Data-Oriented Design (DOD)** approach and a two-stage "Bake-then-Run" execution model.
+
+---
+
+## 1. System Overview
+
+The simulator facilitates the interaction between **Devices** and **Nets**. Devices interact with the world via **Pins**. The harness manages signal propagation, logic resolution (including contention), and event-driven execution.
+
+### 1.1 Core Principles
+
+* **Static Topology:** The circuit is defined by connecting pins. Once defined, the structure is "baked" into optimized memory layouts.
+* **Minimalist Core:** The simulator core only recognizes **Nets** (groups of connected pins) and **Triggers** (callbacks to device logic).
+* **Deduplicated Execution:** Devices are invoked at most once per simulation phase, regardless of how many input signals changed.
+
+---
+
+## 2. Signal Requirements: LogicState
+
+The simulator must support a 6-state logic system to accurately model high-impedance states and signal contention.
+
+| State | Description | Priority |
+| --- | --- | --- |
+| `High` | Strong Driven High (1) | High |
+| `Low` | Strong Driven Low (0) | High |
+| `HighWeak` | Resistive High (e.g., Pull-up) | Low |
+| `LowWeak` | Resistive Low (e.g., Pull-down) | Low |
+| `Floating` | High Impedance (Z) | Lowest |
+| `Error` | Contention (e.g., High + Low) | Critical |
+
+**Resolution Rule:** If a net contains both `High` and `Low` strong drivers, the result is `Error`. Strong states always override Weak states. Weak states override `Floating`.
+
+---
+
+## 3. Public API Requirements
+
+### 3.1 Pin & Bus Interface
+
+Pins are the primary interface for devices.
+
+* **`connect(Pin& other)`**: Merges the electrical nets of two pins.
+* **`write(LogicState s)`**: Updates the pin's drive value. If the new value differs from the previous, the parent Net is marked "dirty."
+* **`read()`**: Returns the current resolved state of the Net the pin belongs to.
+* **`Bus`**: A convenience wrapper for a `std::vector<Pin*>` to allow multi-bit operations (Read/Write integers).
+
+### 3.2 Device & Triggers
+
+Devices must inherit from a base `Device` class and implement a `logic(const TriggerMask& mask)` method.
+
+* **Trigger Registration**: Devices register their interest in a Pin’s state change.
+* **Immediate Triggers**: Invoked during the propagation phase. Used for combinatorial logic (e.g., an AND gate).
+* **Stable Triggers**: Invoked once propagation has settled. Used for synchronous logic (e.g., Clocked Flip-Flops).
+* **TriggerMask**: A bitmask provided to the `logic` call, allowing the device to identify which specific pin(s) triggered the invocation.
+
+---
+
+## 4. Simulation Lifecycle
+
+### 4.1 The Bake Phase
+
+Before simulation begins, a `bake()` method must be called. This process:
+
+1. Flattens the graph of Nets and Pins into contiguous memory arrays.
+2. Pre-calculates trigger offsets and masks.
+3. Optimizes data structures for cache-locality to achieve the 100MHz+ performance target.
+
+### 4.2 The Run Cycle
+
+Each call to `run()` executes the following deterministic sequence:
+
+1. **Net Update:** Update all "dirty" nets (those where a pin drive value changed).
+2. **Immediate Propagation:** Identify and invoke all dirty **Immediate Triggers**. A trigger becomes dirty if any net it is registered to changes its resolved value.
+3. **Iteration:** If any immediate trigger's logic causes a `write()` that dirties a net, return to Step 1.
+4. **Error Validation:** Before proceeding to stable triggers, if any net resolved to `LogicState::Error`, the simulator must throw a runtime exception.
+5. **Stable Execution:** Run all dirty **Stable Triggers** exactly once.
+
+---
+
+## 5. Usage Example
+
+```cpp
+// Example: Creating a simple AND Gate system
+Simulator sim;
+
+// 1. Define Devices
+AndGate g1(&sim);
+Pin inputA(&sim);
+Pin inputB(&sim);
+
+// 2. Define Topology
+inputA.connect(g1.pinA);
+inputB.connect(g1.pinB);
+
+// 3. Bake for Performance
+sim.bake();
+
+// 4. Interact
+inputA.write(LogicState::High);
+inputB.write(LogicState::High);
+
+// 5. Simulate
+sim.run();
+
+// 6. Verify
+if (g1.out.isHigh()) { /* Logic Success */ }
+
+```
+
+---
+
+## 6. Performance & Constraints
+
+* **Data-Oriented Design:** Internal state should be stored in "Struct of Arrays" format where possible to minimize cache misses during the `run()` loop.
+* **Memory Overhead:** Pins should be lightweight pointers/indices until connected to minimize the footprint of large-scale circuits.
+* **Deduplication:** The harness must ensure that even if 4 pins on a single device change state simultaneously, the `logic()` method is only called once per phase.

@@ -1,0 +1,53 @@
+# MachineHarness regression test for My6502: boots the machine and runs a
+# comprehensive scratch program exercising three components through the real
+# bus -- not just that the CPU/RAM/UART each work in isolation (that's
+# DeviceHarness's job, already done before any of them was eligible for this
+# machine's component list):
+#   - Register8 ($C008) write/read round trip through Chipset's decode.
+#   - RAM ($0300-$030F): a 16-byte indexed fill + verify loop, proving the CPU
+#     can drive arbitrary addressing modes against ParallelSram through Chipset's
+#     "everything else is memory" fallthrough.
+#   - ST16C550 UART ($C000-$C007): MCR/IER/SPR register writes, then a
+#     loopback FIFO fill (5 bytes via THR) and drain (2 bytes via RHR) --
+#     exercises Chipset's UART strobe decode and leaves FIFO/interrupt state
+#     a MachineHarness `uart` point can assert without any TCP transport.
+# See My6502.machinetest.asm for the firmware, and src/Testing/MachineHarness.md
+# for the script grammar.
+#
+# Run it with `ctest --test-dir build/<preset> -R machinetest.My6502` (or the
+# `check` target, which builds everything first). CMake assembles the ROM
+# (My6502.machinetest.asm) to <build dir>/rom/My6502-machinetest, and the test
+# runs from the build directory so the `rom=` path below resolves. By hand:
+#
+#   cd build/debug && ./MachineHarness ../../src/Machines/My6502/My6502.machinetest
+
+machine My6502 rom=rom/My6502-machinetest
+
+print SECTION=boot-register8-ram-and-uart
+run 3000
+
+print SECTION=register8-roundtrip-through-chipset-decode
+expect ram[0x200] = 0x42
+
+print SECTION=ram-indexed-fill-verify-loop
+expect ram[0x300] = 0xA5
+expect ram[0x307] = 0xA2
+expect ram[0x30F] = 0xAA
+expect ram[0x311] = 0x00
+
+print SECTION=uart-loopback-fifo-fill-and-drain
+expect ram[0x320] = 0x10
+expect ram[0x321] = 0x11
+expect uart.MCR = 0x10
+expect uart.IER = 0x01
+expect uart.SPR = 0x5A
+expect uart.RxFifoSize = 3
+expect uart.OverrunError = 0
+expect uart.InterruptPending = 1
+
+print SECTION=cpu-parked-after-boot-and-firmware-run
+expect cpu.PC = 0xC160
+expect cpu.X = 0x05
+
+dump cpu
+dump uart

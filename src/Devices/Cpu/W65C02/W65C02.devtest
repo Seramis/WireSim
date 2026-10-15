@@ -1,0 +1,5 @@
+device W65C02
+print SECTION=reset-values-before-any-cycle
+dumpregs
+expect reg.S = 0xFF
+expect reg.P = 0x34
