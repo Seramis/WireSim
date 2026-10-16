@@ -1,0 +1,53 @@
+# Reset, then LDA #$42 ; STA $0300. Every bus cycle is asserted, per the
+# W65C02S datasheet instruction table; the reset sequence is this model's own
+# (see W65C02.md "Bus profile").
+
+# One read cycle: $0 = address the CPU must present, $1 = data fed back.
+def R
+  drive CLK = L
+  step 2
+  expect A = $0
+  expect RWB = H
+  drive D = $1
+  drive CLK = H
+  step 2
+end
+
+# One write cycle: $0 = address, $1 = data the CPU must write. The stub
+# releases D one cycle after the edge so it never fights the CPU's write.
+def W
+  drive CLK = L
+  step
+  clear D
+  step
+  expect A = $0
+  expect RWB = L
+  expect D = $1
+  drive CLK = H
+  step 2
+end
+
+device W65C02
+drive IRQB = H
+drive NMIB = H
+drive RDY = H
+drive RESB = L
+drive CLK = H
+step 2
+
+R 0x0000 0xea       # reset: dummy read
+drive RESB = H      # released once the first reset cycle is queued
+R 0x0000 0xea       # reset: dummy read
+R 0xfffc 0x00       # reset vector low
+R 0xfffd 0x02       # reset vector high
+
+R 0x0200 0xa9       # LDA #imm: opcode fetch
+R 0x0201 0x42       #           operand
+R 0x0202 0x8d       # STA abs:  opcode fetch
+R 0x0203 0x00       #           address low
+R 0x0204 0x03       #           address high
+W 0x0300 0x42       #           write
+
+expect reg.A = 0x42
+expect reg.PC = 0x0205
+expect reg.P = 0x34

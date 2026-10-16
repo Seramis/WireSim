@@ -71,6 +71,8 @@ This apply to any device with stable-triggered output.
 ## Script grammar
 
 ```
+def <name> ... end        # macro, see "Macros"; calls are `<name> <arg0> <arg1> ...`
+
 device <Type> [key=value ...]
 
 drive <pin> = <value>
@@ -126,7 +128,7 @@ This cheap for every script because `DeviceHarness` default `SDL_VIDEODRIVER` to
 
 ## Register/memory inspection
 
-Device can opt into `Sim::IRegisterInspectable` and/or `Sim::IMemoryInspectable` (`src/Simulator/Inspect.hpp`); see `device-inspect` skill. Registration shim set matching capability pointer, as `h.Ui` do for UI device:
+Device can opt into `Sim::IRegisterInspectable` and/or `Sim::IMemoryInspectable` (`src/Simulator/Inspect.hpp`); see `device` skill, step 4. Registration shim set matching capability pointer, as `h.Ui` do for UI device:
 
 ```cpp
 h.Registers = dynamic_cast<Sim::IRegisterInspectable*>(dev.get());
@@ -142,6 +144,35 @@ Pointer left null (the default) mean device not implement that interface, and sc
 - **`expect mem[<addr>] = <value>`** assert one byte. Take no trailing message.
 
 These interfaces never call from `Logic()` or hot path; exist for tooling (this harness, `MachineHarness`, debugging), so ordinary virtual dispatch fine.
+
+## Macros
+
+Both harnesses share text pre-pass (`ScriptMacros.hpp`) expanding macros before script parsed, so repeated sequence written once. Use macro whenever script repeats same few lines with different values: register write or read access (strobes, address, data, release), reset or init sequence, clock pulse, bus cycle, group of `expect`s. Name macro for operation, script reads as list of operations:
+
+```
+def WRITE_REG            # $0 = register address, $1 = value
+  drive RS = $0
+  drive D = $1
+  drive NotCS = L
+  drive NotWR = L
+  step
+  drive NotWR = H
+  drive NotCS = H
+  clear D
+  step
+end
+
+WRITE_REG 0x2 0x80
+```
+
+`def <name>` starts macro, `end` closes it; body is ordinary script lines. `$0`, `$1`, ... are call's arguments, counted from 0. Line starting with macro name is call.
+
+- Call replaced by body with each `$N` substituted by N-th argument. Parsers only see expanded, ordinary commands.
+- Arguments are whitespace-separated words (no quoting). Call must pass exactly as many as highest `$N` in body plus one.
+- `$$` is literal `$`; `$` followed by anything else left alone, so `print` text such as `$FFFC` safe.
+- Macro must be defined before call, may call earlier macros (nesting limit 16), cannot be redefined, cannot reuse built-in command name. `def` does not nest.
+- Define macros at top of file, before `device` / `machine` line. No effect on setup-then-run ordering: only expanded commands count.
+- Errors and report lines refer to line of call.
 
 ## Contention detection
 
@@ -230,6 +261,10 @@ device Rom contents=@firmware.bin size=32768
 
 `Sim::Device` has no virtual destructor (see `Device.hpp`), so `DeviceHandle` cannot hold bare `unique_ptr<Sim::Device>`. `Owner` is `unique_ptr<IOwnedDevice>` wrap type-specific `OwnedDevice<T>`, which supply virtual destructor scoped to harness own bookkeeping.
 
+## CPU devices
+
+CPU needs no special support: script drives its clock, reset, interrupt, data pins, expects its address and control pins, reads registers via `dumpregs` / `expect reg.*`. Define one macro per bus-cycle kind (see [Macros](#macros)), write program as list of calls. Method in `.claude/skills/device-harness/bus-master.md` and `device` skill (`cpu.md`); worked example `src/Devices/Cpu/W65C02/W65C02_lda_sta.devtest`.
+
 ## Where this fits
 
-This tool is verification step for device work (`device-cpp`, `device-verilog`). Not cover multi-device wiring; see "Why single-device".
+This tool is verification step for device work (`device` skill). Not cover multi-device wiring; see "Why single-device".

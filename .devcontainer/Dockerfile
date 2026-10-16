@@ -29,6 +29,10 @@ RUN microdnf install -y \
 # they're listed explicitly above. Without them SDL2 silently falls back to
 # the dummy driver and SDL_CreateWindow() "succeeds" with no visible window.
 
+# No standalone claude install: shim runs the binary bundled with the VS Code
+# Claude Code extension (see claude-vscode-shim).
+COPY --chmod=755 claude-vscode-shim /usr/local/bin/claude
+
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000

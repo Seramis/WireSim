@@ -4,9 +4,9 @@ description: Compose a new Machine (CPU + memory + peripherals + Chipset glue + 
 ---
 # Composing a machine from devices
 
-This skill combine already-built `Sim::Device`s into running `Machine`: address decode across chips, real CPU and bus, firmware image. `device-cpp` and `device-verilog` declare out of scope, `DeviceHarness` cannot verify this (see `DeviceHarness.md`, "Why single-device"). `src/Machines/BenEater6502/` worked example; files = skeleton for every step below.
+This skill combine already-built `Sim::Device`s into running `Machine`: address decode across chips, real CPU and bus, firmware image. the `device` skill declares out of scope, `DeviceHarness` cannot verify this (see `DeviceHarness.md`, "Why single-device"). `src/Machines/BenEater6502/` worked example; files = skeleton for every step below.
 
-Skill **never create, edit or retrofit device**. Every component must already exist under `src/Devices/` and pass own `.devtest`. Missing device built first with `device-cpp`/`device-verilog`. Device exist but not inspectable (see "Inspection check") retrofitted, if at all, with `device-inspect`.
+Skill **never create, edit or retrofit device**. Every component must already exist under `src/Devices/` and pass own `.devtest`. Missing device built first with `device` skill. Device exist but not inspectable (see "Inspection check") retrofitted, if at all, with `device` skill's step 4 ("Expose state").
 
 ## Which case is this?
 
@@ -29,7 +29,7 @@ If any input incomplete or ambiguous, say so, ask instead of guessing memory map
 
 Before wiring, check whether CPU and main memory device implement `Sim::IRegisterInspectable` / `Sim::IMemoryInspectable` (`src/Simulator/Inspect.hpp`). Grep header for base classes or check device's `.md`.
 
-If either missing, **stop, ask user** whether to run `device-inspect` on it first (enables register and memory `expect`s for this machine) or proceed without state assertions for that component. Skill never edits device itself.
+If either missing, **stop, ask user** whether to run `device` skill's step 4 ("Expose state") on it first (enables register and memory `expect`s for this machine) or proceed without state assertions for that component. Skill never edits device itself.
 
 ## Phase 1: Place
 
@@ -70,10 +70,12 @@ Add `<Machine>.machine-harness.cpp` shim (template in `src/Testing/MachineHarnes
 - Boot reaches expected reset vector or entry point (an `expect <cpu>.PC = ...` after enough `run` cycles to clear reset and first fetches, if CPU inspectable).
 - One representative read and write through each peripheral's decoded address range. Proves `Chipset`'s decode, **not** peripheral's own correctness, already covered by `DeviceHarness`.
 
+Define script macros (`def <name> ... end`, positional `$0`, `$1`... arguments; see `DeviceHarness.md`'s "Macros" and `MachineHarness.md`) for what repeats across ranges and runs: e.g. `def EXPECT_RAM` wrapping `expect ram[$0] = $1`, or a standard `reset` + `run` boot prefix. One call per range keeps the decode coverage easy to read and extend.
+
 Commit as `<Machine>.machinetest` with `rom=rom/<Machine>-machinetest` (ctest runs it from build directory), registered with `TEST` in `machine.cmake`. Standing regression test, like `.devtest`.
 
 If CPU or memory not inspectable (declined at "Inspection check"), script can verify only what needs no register or memory `expect`: that boot does not crash, or `DebugWriter`-style device's log output. Say so in machine's `AGENTS.md` instead of silently having no regression test.
 
 ## Scope
 
-Skill verifies multi-device wiring, address decode, firmware boot/run behavior, using only devices already passing own `.devtest`. Never creates, edits or retrofits device. New devices come from `device-cpp`/`device-verilog`, inspectability from `device-inspect`, always as separate prior work skill asks user about instead of doing itself.
+Skill verifies multi-device wiring, address decode, firmware boot/run behavior, using only devices already passing own `.devtest`. Never creates, edits or retrofits device. New devices and inspectability come from `device` skill, always as separate prior work skill asks user about instead of doing itself.

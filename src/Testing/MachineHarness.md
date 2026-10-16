@@ -20,7 +20,7 @@ Tool does **not** build firmware. Script's `rom=<DIR>` points at ROM directory a
 
 ### Why there is no `drive`/`clear`
 
-`DeviceHarness` drives pins because device's own pin behavior *is* what it tests. Machine's wiring can't be tested that way: only way to see whether `Chipset`'s decode right, or whether firmware boots, is run real firmware on real CPU + inspect result. So no pin-driving verb. State comes only from what `run <cpuCycles>` of real execution produces, read back through two opt-in interfaces (`Sim::IRegisterInspectable`, `Sim::IMemoryInspectable`; `src/Simulator/Inspect.hpp`) that machine's CPU + memory implement. Adding them to device is `device-inspect` skill's job; `MachineHarness` only reads them.
+`DeviceHarness` drives pins because device's own pin behavior *is* what it tests. Machine's wiring can't be tested that way: only way to see whether `Chipset`'s decode right, or whether firmware boots, is run real firmware on real CPU + inspect result. So no pin-driving verb. State comes only from what `run <cpuCycles>` of real execution produces, read back through two opt-in interfaces (`Sim::IRegisterInspectable`, `Sim::IMemoryInspectable`; `src/Simulator/Inspect.hpp`) that machine's CPU + memory implement. Adding them to device is `device` skill's job (step 4); `MachineHarness` only reads them.
 
 Machine whose components implement neither interface can still be registered, booted + run. An `expect`/`dump`/`poke` against point without matching interface fails at parse time, but rest of script still exercises boot + timing.
 
@@ -62,6 +62,20 @@ print <literal text to echo>
 - **Output:** one line per command tagged `[c=<cpuCycles> t=<ms>]` (`c` is whole-CPU-cycle count, `t` is wall-clock milliseconds since run phase began), `PASS`/`FAIL` lines + final `N/M checks passed` line.
 - **Comments:** line starting with `#` is comment, trailing `# ...` stripped, except `print` takes rest of line literally. Both harnesses share this lexing (`ScriptLexer.hpp`).
 
+## Macros
+
+`.machinetest` scripts support same `def <name> ... end` macros as `.devtest`; rules in [DeviceHarness.md](DeviceHarness.md#macros). Suit repeated `poke`/`run`/`expect` groups: one check per decoded address range, same assertions after each of several `run` steps, standard boot-and-settle prefix.
+
+```
+def EXPECT_RAM           # $0 = address, $1 = expected value
+  expect ram[$0] = $1
+end
+
+EXPECT_RAM 0x200 0xA5
+```
+
+Arguments substituted as plain text, so `$0` may be pasted into longer word (`ram[$0]`); keep argument count exact.
+
 ## Registering a new machine
 
 Machine's shim is colocated `<Machine>.machine-harness.cpp`, next to its other files:
@@ -95,7 +109,7 @@ HARNESS_REGISTER_MACHINE("MyMachine", CreateMyMachine)
 
 Machine class needs small, mechanical set of members to be eligible:
 
-- Chips reachable from shim as `IRegisterInspectable&`/`IMemoryInspectable&`, either as public members (`&machine->_cpu`) or through accessors. Meaningful only once those devices implement interfaces (prior `device-inspect` step).
+- Chips reachable from shim as `IRegisterInspectable&`/`IMemoryInspectable&`, either as public members (`&machine->_cpu`) or through accessors. Meaningful only once those devices implement interfaces (prior `device` skill step 4).
 - `LoadRom(romDir)` that takes directory instead of hard-coded paths.
 - `TickHalfCycle()` / `HoldReset(halfCycles)` pair, factored out of machine's interactive `Start()` loop so callable from inside harness's single `Platform::Start()`.
 

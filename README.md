@@ -43,7 +43,7 @@ Performance is the main concern of the engine, and this is why. Commit messages 
 
 New hardware is added in two steps, each driven by a project skill in `.claude/skills/` and verified by its own harness. The rules those skills follow live in [AGENTS.md](AGENTS.md).
 
-1. **Devices from datasheets.** Give Claude a datasheet (the PDFs in [docs/](docs/) are examples) and ask for the chip. The `device-cpp` skill writes it as a C++ `Sim::Device`, or `device-verilog` writes it as Verilog that is verilated and wrapped as a device. The `device-harness` skill then exercises the device through its pins with a `.devtest` script, with no CPU, ROM or machine involved. A device is considered done when its script passes. The `device-inspect` skill can add opt-in register and memory inspection so tests can read the device's state afterwards.
+1. **Devices from datasheets.** Give Claude a datasheet (the PDFs in [docs/](docs/) are examples) and ask for the chip. The `device` skill writes it as a C++ `Sim::Device`, or as Verilog that is verilated and wrapped as a device. The `device-harness` skill then exercises the device through its pins with a `.devtest` script, with no CPU, ROM or machine involved. A device is considered done when its script passes. The same skill can add opt-in register and memory inspection so tests can read the device's state afterwards.
 2. **Machines from specifications.** Give Claude a specification of the computer, such as the component list, memory map, clock and reset topology and firmware toolchain (see [src/Machines/BenEater6502/specs/specification.md](src/Machines/BenEater6502/specs/specification.md) for an example). The `machine-engineer` skill wires already verified devices together with address-decode glue logic and firmware, and verifies the result with a `.machinetest` booted through `MachineHarness`.
 
 For debugging, the `asm-test` skill runs a small 65C02 assembly program and reads back the trace and final CPU state. Debugging agents in `.claude/agents/` cover problems at the register level of a single device and in the wiring between chips.
@@ -144,7 +144,7 @@ The fast loop this project exists for is: edit assembly, rebuild, run. Firmware 
 
 ## Testing
 
-- **Devices**: each device may ship a `.devtest` script that drives its pins directly through `DeviceHarness` ([src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md)).
+- **Devices**: each device may ship a `.devtest` script that drives its pins directly through `DeviceHarness` ([src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md)). Scripts can define macros (`def <name> ... end`, positional `$0`, `$1`... arguments) for repeated sequences; `.machinetest` scripts support them too.
 - **Machines**: a `.machinetest` script boots a machine from a pre-built ROM headless and asserts CPU and memory state through `MachineHarness` ([src/Testing/MachineHarness.md](src/Testing/MachineHarness.md)).
 - Run all of them with `cmake --build --preset release --target check`.
 

@@ -20,8 +20,8 @@ Performance: main goal here. Commit subjects show measured half-cycle rate (e.g.
 ## Documentation map
 
 - [overview.md](overview.md): simulator core (pins, nets, logic states, immediate and stable triggers).
-- [.github/instructions/hardware-debug.instructions.md](.github/instructions/hardware-debug.instructions.md): W65C02 CPU model and CPU/bus debug workflow.
-- [src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md): `DeviceHarness`, exercises one device thru its pins, no CPU, ROM or machine needed. Expected and sufficient verification for a device.
+- [src/Devices/Cpu/W65C02/W65C02.md](src/Devices/Cpu/W65C02/W65C02.md): W65C02 CPU model, bus profile and test coverage.
+- [src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md): `DeviceHarness`, exercises one device thru its pins, no CPU, ROM or machine needed. Expected and sufficient verification for a device. Scripts (here and in `MachineHarness`) support `def <name> ... end` macros with positional `$0`, `$1`... arguments: factor any repeated sequence (register access, bus cycle, reset, check group) into one.
 - [src/Testing/MachineHarness.md](src/Testing/MachineHarness.md): `MachineHarness`, boots machine from pre-built ROM, runs it headless, asserts CPU/memory state.
 - [docs/](docs/): datasheets for devices built in this repo.
 - Per-component `.md` files sit next to code (see "Repository map"). Check component's dir for one before trusting comments or guessing from source.
@@ -30,9 +30,8 @@ Skills in `.claude/skills/`:
 
 | Skill | Use it to |
 | --- | --- |
-| `device-cpp`, `device-verilog` | add, extend or debug C++/Verilog device, verified w/ `DeviceHarness` |
-| `device-harness` | exercise one device's pins w/ `.devtest` script |
-| `device-inspect` | add opt-in register/memory inspection to device |
+| `device` | add, extend, audit or debug any device (C++ or Verilog, peripheral or CPU), incl. opt-in register/memory inspection, verified w/ `DeviceHarness` |
+| `device-harness` | exercise one device's pins w/ `.devtest` script; bus masters (CPU) driven w/ bus-cycle macros |
 | `machine-engineer` | compose verified devices into `Machine`, verified w/ `MachineHarness` |
 | `asm-test` | write and run focused 65C02 test program |
 
@@ -68,7 +67,7 @@ Each machine executable takes `--variant NAME` (firmware built to `<exe dir>/rom
 
 **Adding a machine** needs no edit to `CMakeLists.txt`, presets or IDE config. Give `src/Machines/<Machine>/` a `machine.cmake` (see `BenEater6502/machine.cmake`) calling `wiresim_add_machine()` once and `wiresim_add_firmware()` per ROM variant. Machine-specific `scripts/build-firmware.sh` assembles each variant. Its `.machinetest` names its ROM as `rom/<Machine>-<variant>`, relative to build dir ctest runs from. Use the `machine-engineer` skill.
 
-**Verification:** no unit-test suite for engine itself; `check` runs device and machine scripts only. Device verified w/ `DeviceHarness`: colocated `.devtest` script drives its pins directly. That's the expected and sufficient step for device work (`device-cpp`/`device-verilog`). **Agents not expected to build or boot full machine just to add or change a device.** Wiring several devices into running computer (address decode, real CPU/bus, firmware) is machine work, verified w/ `MachineHarness`.
+**Verification:** no unit-test suite for engine itself; `check` runs device and machine scripts only. Device verified w/ `DeviceHarness`: colocated `.devtest` script drives its pins directly. That's the expected and sufficient step for device work (`device` skill). **Agents not expected to build or boot full machine just to add or change a device.** Wiring several devices into running computer (address decode, real CPU/bus, firmware) is machine work, verified w/ `MachineHarness`.
 
 ## Simulator core contract
 
@@ -111,6 +110,5 @@ Details in [overview.md](overview.md).
 - Report verification honestly. For device, give exact `.devtest` script (or inline commands) and pass/fail count. For machine-level work, give exact program, cycle count and observed final state.
 - `MachineHarness` checks final state after bulk `run <N>`; never correlates behavior cycle by cycle (see `MachineHarness.md`). Use `.machinetest` for "does this stay correct" regression coverage, trace-based tools (`sim-run.sh`, `asm-test`, `cycle-delta.sh`) for "why is this wrong" root-cause work.
 - Specialized debugging agents (Claude Code: `.claude/agents/`; Copilot: `.github/agents/`):
-  - CPU/bus bugs: `mos-stepper-debugger`.
-  - Non-CPU device/register-level bugs: `peripheral-device-debugger`.
+  - Device implementation, audit and register/pin-level bugs, CPUs included (any architecture): `device-debugger`, verified with `DeviceHarness` (`device`, `device-harness` skills).
   - Whole-machine wiring bugs (address decode, enable fan-out, reset/interrupt wiring across chips): `machine-wiring-debugger` (Claude Code only), reproduced first w/ a `.machinetest` script.

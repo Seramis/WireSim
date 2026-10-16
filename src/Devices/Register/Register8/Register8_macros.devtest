@@ -1,0 +1,34 @@
+# Script macros (def/end, positional $N arguments, nested calls) against
+# Register8. See src/Testing/DeviceHarness.md "Macros".
+
+# $0 = value to latch
+def WRITE
+  print TAG=write-$0
+  drive NotCE = L
+  drive NotOE = H
+  drive NotWE = L
+  drive D = $0
+  step
+  drive NotWE = H
+end
+
+# $0 = value expected back
+def READ
+  clear D
+  drive NotOE = L
+  step
+  expect D = $0
+end
+
+# Calls the two above; $$ is a literal dollar in the print text.
+def ROUNDTRIP
+  WRITE $0
+  READ $0
+  print TAG=roundtrip-$0-cost-$$
+end
+
+device Register8
+ROUNDTRIP 0x3C
+ROUNDTRIP 0xA5
+WRITE 0x00
+READ 0x00

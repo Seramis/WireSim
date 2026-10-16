@@ -1,0 +1,9 @@
+#!/bin/sh
+# Runs the newest claude binary bundled with the VS Code Claude Code extension.
+# Resolved on every call, so extension updates need no container rebuild.
+bin=$(ls -d "$HOME"/.vscode-server/extensions/anthropic.claude-code-*/resources/native-binary/claude 2>/dev/null | sort -V | tail -n 1)
+if [ -z "$bin" ]; then
+	echo "claude: VS Code Claude Code extension not installed in $HOME/.vscode-server" >&2
+	exit 127
+fi
+exec "$bin" "$@"

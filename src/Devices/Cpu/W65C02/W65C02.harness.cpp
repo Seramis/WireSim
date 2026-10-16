@@ -3,16 +3,9 @@
 
 namespace {
 
-// W65C02 has never needed a DeviceHarness shim before this: real cycle-level
-// verification happens by running actual firmware through the real machine
-// (`asm-test`/`mos-stepper-debugger`), not by driving its clock/address/data
-// pins directly in a script -- the register state produced that way is the
-// point, not something a bare pin-level script could usefully fake. This
-// shim exists for exactly one thing: proving DumpRegisters() (IRegisterInspectable,
-// see Inspect.hpp) actually reaches the real fields, via the only two
-// registers with a deterministic value before any cycle has run -- S and P,
-// set by the constructor. See W65C02.devtest and W65C02Impl.cpp's
-// DumpRegisters() comment for why PC/A/X/Y aren't asserted here.
+// Registers `PC`/`A`/`X`/`Y`/`S`/`P` through IRegisterInspectable (see
+// Inspect.hpp). The CPU is driven like any other device: a script plays the
+// rest of the system on CLK/D and expects A/RWB (see W65C02.md "Bus profile").
 Sim::Testing::DeviceHandle CreateW65C02(Sim::Platform& p, const Sim::Testing::ArgsMap&) {
 	auto dev = std::make_unique<W65C02>(&p);
 

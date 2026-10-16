@@ -1,5 +1,6 @@
 #include "MachineHarnessScript.hpp"
 #include "ScriptLexer.hpp"
+#include "ScriptMacros.hpp"
 #include <chrono>
 #include <format>
 #include <ostream>
@@ -51,16 +52,13 @@ bool SplitMemoryRef(const std::string& ref, std::string& point, uint64_t& addres
 	return true;
 }
 
-std::vector<Command> ParseScript(const std::string& source) {
+std::vector<Command> ParseScript(const std::string& sourceText) {
 	std::vector<Command> commands;
-	std::istringstream stream(source);
-	std::string rawLine;
-	int lineNo = 0;
 	bool sawMachine = false;
 
-	while (std::getline(stream, rawLine)) {
-		++lineNo;
-		const std::string line = Trim(rawLine);
+	for (const SourceLine& source : ExpandMacros(sourceText)) {
+		const int lineNo = source.Line;
+		const std::string line = Trim(source.Text);
 		if (line.empty() || line[0] == '#') continue;
 
 		std::istringstream verbStream(line);

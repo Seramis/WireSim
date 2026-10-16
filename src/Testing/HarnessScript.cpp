@@ -1,5 +1,6 @@
 #include "HarnessScript.hpp"
 #include "ScriptLexer.hpp"
+#include "ScriptMacros.hpp"
 #include <chrono>
 #include <format>
 #include <ostream>
@@ -55,16 +56,13 @@ ArgsMap ParseArgs(const std::vector<std::string>& tokens, size_t from, int lineN
 
 // Parses the whole script up front, so a syntax error anywhere is reported
 // before any device is created or any cycle is run.
-std::vector<Command> ParseScript(const std::string& source) {
+std::vector<Command> ParseScript(const std::string& sourceText) {
 	std::vector<Command> commands;
-	std::istringstream stream(source);
-	std::string rawLine;
-	int lineNo = 0;
 	bool sawDevice = false;
 
-	while (std::getline(stream, rawLine)) {
-		++lineNo;
-		const std::string line = Trim(rawLine);
+	for (const SourceLine& source : ExpandMacros(sourceText)) {
+		const int lineNo = source.Line;
+		const std::string line = Trim(source.Text);
 		if (line.empty() || line[0] == '#') continue;
 
 		std::istringstream verbStream(line);

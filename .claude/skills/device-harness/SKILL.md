@@ -67,6 +67,7 @@ expect D = 0x3C
 - Report lines tagged `[s=<n> t=<ms>]`: cycle count and real milliseconds since run phase began. Diverge only around `sleep` or device's own background thread.
 - `sleep <milliseconds>` block real time, for device that advance state from background thread. Put plain `step` right after `sleep` before fresh read, queued work drain one cycle late. See `DeviceHarness.md`'s `sleep` note, and "Verifying real-time or background-thread behavior" for when script wrong tool.
 - **Pin written only from stable-triggered branch not visible until one cycle after edge that changed it.** Hold for any device. `expect` it one `step` later. See `DeviceHarness.md`'s "Stable writes lag one cycle".
+- **Macros:** `def <name> ... end` defines macro; line starting with its name is call, `$0`, `$1`... in body are call's arguments. Script repeating few lines with different values should define one: register write or read access, reset/init sequence, clock pulse, bus cycle, group of `expect`s. Define at top, name for operation, script becomes list of operations. Rules in `DeviceHarness.md`'s "Macros" (exact argument count, `$$` for literal `$`, define before use, no built-in names).
 - `print <text>` echo a line, for greppable section tags in committed scripts.
 - **To advance clock with bus idle** (background tick, free-running counter), make bus really idle, not just unaddressed. Switch to read mode (or unused register address) before block of bare clock toggles, else stale pending write recommit on every toggle.
 - **First `step` absorb setup residue.** Every linked pin start dirty, first cycle resolve them all together. Immediate triggers fire whenever their net is *resolved*, not only on value change, so handler that treat "my trigger bit fired" as proof signal changed can batch with unrelated register-access trigger on that first settle. When registering device, check trigger handlers read pin's actual level.
@@ -81,7 +82,7 @@ build/debug/DeviceHarness -v src/Devices/<Category>/<Name>/<Name>.devtest
 
 Exit code: 0 all `expect`s passed, 1 some failed, 2 malformed script. `-v` turn on `Diagnostics::debugMode`, show debug prints device gates on it.
 
-Commit working script as `<Name>.devtest` next to device. Become standing regression test. For one-off exploration, pipe script on stdin with `-` as path:
+Commit working script, macros included, as `<Name>.devtest` next to device. Become standing regression test. For one-off exploration, pipe script on stdin with `-` as path:
 
 ```bash
 build/debug/DeviceHarness -v - <<'EOF'
@@ -92,6 +93,10 @@ expect D = 0x3C
 EOF
 ```
 
+## Devices that drive the bus (CPU, DMA)
+
+Bus master needs no special support, but script written other way round: script is the memory, each bus cycle is macro call feeding data and asserting address and control lines. See [bus-master.md](bus-master.md) for bus profile, cycle macros, register readout, failure classification.
+
 ## Where this fits
 
-This = verification step for `device-cpp` and `device-verilog`. Iteration only rebuild `DeviceHarness`. To reproduce bug in existing device, write focused script that drive suspect pins. Wrong read/write semantics, bad chip-select decode, FIFO or interrupt-priority cases all reachable this way. Symptom that only exist through CPU/bus interaction, or through how device's decode behave next to another device or shared bus decoder, = machine concern outside this skill; say so instead of chasing it.
+This = verification step for the `device` skill. Iteration only rebuild `DeviceHarness`. To reproduce bug in existing device, write focused script that drive suspect pins. Wrong read/write semantics, bad chip-select decode, FIFO or interrupt-priority cases all reachable this way. Symptom that only exist through CPU/bus interaction, or through how device's decode behave next to another device or shared bus decoder, = machine concern outside this skill; say so instead of chasing it.
