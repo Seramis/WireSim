@@ -21,6 +21,7 @@ Performance: main goal here. Commit subjects show measured half-cycle rate (e.g.
 
 - [overview.md](overview.md): simulator core (pins, nets, logic states, immediate and stable triggers).
 - [src/Devices/Cpu/W65C02/W65C02.md](src/Devices/Cpu/W65C02/W65C02.md): W65C02 CPU model, bus profile and test coverage.
+- [src/Devices/Cpu/Z80/Z80.md](src/Devices/Cpu/Z80/Z80.md): Z80 CPU model, bus profile, limitations, test coverage; [Z80.coverage.md](src/Devices/Cpu/Z80/Z80.coverage.md) lists every instruction form w/ encodings, timing, tests.
 - [src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md): `DeviceHarness`, exercises one device thru its pins, no CPU, ROM or machine needed. Expected and sufficient verification for a device. Scripts (here and in `MachineHarness`) support `def <name> ... end` macros with positional `$0`, `$1`... arguments: factor any repeated sequence (register access, bus cycle, reset, check group) into one.
 - [src/Testing/MachineHarness.md](src/Testing/MachineHarness.md): `MachineHarness`, boots machine from pre-built ROM, runs it headless, asserts CPU/memory state.
 - [docs/](docs/): datasheets for devices built in this repo.

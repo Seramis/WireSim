@@ -1,0 +1,10620 @@
+# Z80 bus timing: every cycle shape checked on every clock edge.
+# Generated; do not edit.
+
+
+# ---- Z80 bus profile --------------------------------------------------------
+# One call = one T-state edge or one bus cycle. Pins: NotM1 NotMREQ NotIORQ NotRD
+# NotWR NotRFSH NotHALT NotWAIT NotINT NotNMI NotRESET NotBUSREQ NotBUSACK CLK, buses A D.
+# Outputs follow a clock edge one cycle later (stable write lag), hence `step 2`.
+def RISE
+  drive CLK = H
+  step 2
+end
+def FALL
+  drive CLK = L
+  step 2
+end
+# Every control output after an edge: M1 MREQ IORQ RD WR RFSH HALT BUSACK (H, L or F).
+def PINS
+  expect NotM1 = $0
+  expect NotMREQ = $1
+  expect NotIORQ = $2
+  expect NotRD = $3
+  expect NotWR = $4
+  expect NotRFSH = $5
+  expect NotHALT = $6
+  expect NotBUSACK = $7
+end
+def IDLE_STROBES
+  expect NotMREQ = H
+  expect NotIORQ = H
+  expect NotRD = H
+  expect NotWR = H
+end
+# One internal T-state: no strobe is active.
+def XT1
+  RISE
+  IDLE_STROBES
+  expect NotM1 = H
+  expect NotRFSH = H
+  FALL
+  IDLE_STROBES
+end
+def XT2
+  XT1
+  XT1
+end
+def XT3
+  XT1
+  XT1
+  XT1
+end
+def XT4
+  XT2
+  XT2
+end
+def XT5
+  XT4
+  XT1
+end
+# Opcode fetch, 4 T-states. $0 = PC, $1 = opcode, $2 = refresh address I:R (R before its increment).
+def M1
+  RISE
+  expect A = $0
+  expect NotM1 = L
+  expect NotMREQ = H
+  expect NotRD = H
+  expect NotWR = H
+  expect NotIORQ = H
+  expect NotRFSH = H
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  expect NotM1 = L
+  drive D = $1
+  RISE
+  expect NotMREQ = L
+  expect NotRD = L
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  RISE
+  clear D
+  expect NotMREQ = H
+  expect NotRD = H
+  expect NotM1 = H
+  expect NotRFSH = L
+  expect A = $2
+  FALL
+  expect NotMREQ = L
+  expect NotRD = H
+  expect NotRFSH = L
+  RISE
+  expect NotMREQ = L
+  expect NotRFSH = L
+  FALL
+  expect NotMREQ = H
+  expect NotRD = H
+  expect NotRFSH = L
+end
+# Memory read, 3 T-states. $0 = address, $1 = data.
+def MR3
+  RISE
+  expect A = $0
+  expect NotM1 = H
+  expect NotMREQ = H
+  expect NotRD = H
+  expect NotWR = H
+  expect NotIORQ = H
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  expect NotWR = H
+  drive D = $1
+  RISE
+  expect NotMREQ = L
+  expect NotRD = L
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  RISE
+  expect NotMREQ = L
+  expect NotRD = L
+  FALL
+  clear D
+  IDLE_STROBES
+end
+# Memory write, 3 T-states. $0 = address, $1 = data. D is driven by the CPU from T1 falling
+# to the next rising edge.
+def MW3
+  RISE
+  expect A = $0
+  expect NotM1 = H
+  expect NotMREQ = H
+  expect NotWR = H
+  expect NotRD = H
+  expect NotIORQ = H
+  FALL
+  expect NotMREQ = L
+  expect NotWR = H
+  expect NotRD = H
+  expect D = $1
+  RISE
+  expect NotMREQ = L
+  expect NotWR = H
+  expect D = $1
+  FALL
+  expect NotMREQ = L
+  expect NotWR = L
+  expect D = $1
+  RISE
+  expect NotMREQ = L
+  expect NotWR = L
+  expect D = $1
+  FALL
+  IDLE_STROBES
+  expect D = $1
+end
+# I/O read, 4 T-states (T1 T2 TW T3). $0 = port address A15-A0, $1 = data.
+def IOR
+  RISE
+  expect A = $0
+  expect NotMREQ = H
+  expect NotIORQ = H
+  expect NotRD = H
+  FALL
+  expect NotIORQ = H
+  expect NotRD = H
+  RISE
+  expect NotIORQ = L
+  expect NotRD = L
+  expect NotMREQ = H
+  FALL
+  expect NotIORQ = L
+  expect NotRD = L
+  drive D = $1
+  RISE
+  expect NotIORQ = L
+  expect NotRD = L
+  FALL
+  expect NotIORQ = L
+  expect NotRD = L
+  RISE
+  expect NotIORQ = L
+  expect NotRD = L
+  FALL
+  clear D
+  IDLE_STROBES
+  expect NotRFSH = H
+end
+# I/O write, 4 T-states. $0 = port address, $1 = data. D is driven from T1 falling to the next
+# rising edge.
+def IOW
+  RISE
+  expect A = $0
+  expect NotMREQ = H
+  expect NotIORQ = H
+  expect NotWR = H
+  FALL
+  expect NotIORQ = H
+  expect NotWR = H
+  expect D = $1
+  RISE
+  expect NotIORQ = L
+  expect NotWR = L
+  expect NotMREQ = H
+  expect D = $1
+  FALL
+  expect NotIORQ = L
+  expect NotWR = L
+  expect D = $1
+  RISE
+  expect NotIORQ = L
+  expect NotWR = L
+  expect D = $1
+  FALL
+  expect NotIORQ = L
+  expect NotWR = L
+  RISE
+  expect NotIORQ = L
+  expect NotWR = L
+  expect D = $1
+  FALL
+  IDLE_STROBES
+  expect D = $1
+end
+# Interrupt acknowledge M1, 6 T-states (T1 T2 TW TW T3 T4) before any extension.
+# $0 = PC, $1 = vector byte, $2 = refresh address.
+def INTA
+  RISE
+  expect A = $0
+  expect NotM1 = L
+  expect NotMREQ = H
+  expect NotIORQ = H
+  expect NotRD = H
+  FALL
+  expect NotMREQ = H
+  expect NotIORQ = H
+  expect NotRD = H
+  RISE
+  FALL
+  expect NotIORQ = H
+  RISE
+  expect NotIORQ = H
+  FALL
+  expect NotIORQ = L
+  expect NotM1 = L
+  expect NotRD = H
+  expect NotMREQ = H
+  drive D = $1
+  RISE
+  expect NotIORQ = L
+  FALL
+  expect NotIORQ = L
+  RISE
+  clear D
+  expect NotIORQ = H
+  expect NotM1 = H
+  expect NotRFSH = L
+  expect NotMREQ = H
+  expect A = $2
+  FALL
+  expect NotMREQ = L
+  RISE
+  expect NotMREQ = L
+  FALL
+  expect NotMREQ = H
+  expect NotRFSH = L
+end
+
+# ---- lean variants for bulk vectors: same cycles, no address checks ---------
+def M1L
+  RISE
+  expect NotM1 = L
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  drive D = $0
+  RISE
+  FALL
+  RISE
+  clear D
+  expect NotRFSH = L
+  expect NotM1 = H
+  FALL
+  RISE
+  FALL
+  expect NotMREQ = H
+end
+def MRL
+  RISE
+  expect NotM1 = H
+  FALL
+  expect NotMREQ = L
+  expect NotRD = L
+  drive D = $0
+  RISE
+  FALL
+  RISE
+  FALL
+  clear D
+  IDLE_STROBES
+end
+
+# ---- power-on / reset -------------------------------------------------------
+# Inputs idle, RESET low for three clocks, then released on a falling edge; the first
+# RISE after this call is T1 of the first M1 cycle.
+def START
+  drive NotWAIT = H
+  drive NotINT = H
+  drive NotNMI = H
+  drive NotBUSREQ = H
+  drive NotRESET = L
+  FALL
+  RISE
+  FALL
+  RISE
+  FALL
+  RISE
+  FALL
+  drive NotRESET = H
+end
+# Full register check. Arguments: PC SP IX IY  A F B C D E H L  A2 F2 B2 C2 D2 E2 H2 L2  I R IFF1 IFF2 IM
+def REGS
+  expect reg.PC = $0
+  expect reg.SP = $1
+  expect reg.IX = $2
+  expect reg.IY = $3
+  expect reg.A = $4
+  expect reg.F = $5
+  expect reg.B = $6
+  expect reg.C = $7
+  expect reg.D = $8
+  expect reg.E = $9
+  expect reg.H = $10
+  expect reg.L = $11
+  expect reg.A2 = $12
+  expect reg.F2 = $13
+  expect reg.B2 = $14
+  expect reg.C2 = $15
+  expect reg.D2 = $16
+  expect reg.E2 = $17
+  expect reg.H2 = $18
+  expect reg.L2 = $19
+  expect reg.I = $20
+  expect reg.R = $21
+  expect reg.IFF1 = $22
+  expect reg.IFF2 = $23
+  expect reg.IM = $24
+end
+
+
+device Z80
+
+print TAG=power-on register values
+REGS 0x0000 0xffff 0x0000 0x0000 0xff 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+print TAG=RESET power-up: A and D float, controls inactive, first M1 at 0000
+drive NotWAIT = H
+drive NotINT = H
+drive NotNMI = H
+drive NotBUSREQ = H
+drive NotRESET = L
+drive CLK = L
+step 2
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS L H H H H H H H
+expect A = 0x0001
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS L L H L H H H H
+expect A = 0x0001
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+REGS 0x0002 0xffff 0x0000 0x0000 0xff 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x02 0 0 0
+print TAG=REFRESH address = I:R, R counts M1 cycles, bit 7 of R untouched
+RISE
+PINS L H H H H H H H
+expect A = 0x0002
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0002
+RISE
+PINS L L H L H H H H
+expect A = 0x0002
+FALL
+PINS L L H L H H H H
+expect A = 0x0002
+RISE
+PINS H H H H H L H H
+expect A = 0x0002
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0002
+RISE
+PINS H L H H H L H H
+expect A = 0x0002
+FALL
+PINS H H H H H L H H
+expect A = 0x0002
+RISE
+PINS H H H H H H H H
+expect A = 0x0003
+drive D = 0x7d
+FALL
+PINS H L H L H H H H
+expect A = 0x0003
+RISE
+PINS H L H L H H H H
+expect A = 0x0003
+FALL
+PINS H L H L H H H H
+expect A = 0x0003
+RISE
+PINS H L H L H H H H
+expect A = 0x0003
+FALL
+PINS H H H H H H H H
+expect A = 0x0003
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0004
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0004
+RISE
+PINS L L H L H H H H
+expect A = 0x0004
+FALL
+PINS L L H L H H H H
+expect A = 0x0004
+RISE
+PINS H H H H H L H H
+expect A = 0x0003
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0003
+RISE
+PINS H L H H H L H H
+expect A = 0x0003
+FALL
+PINS H H H H H L H H
+expect A = 0x0003
+RISE
+PINS L H H H H H H H
+expect A = 0x0005
+drive D = 0x4f
+FALL
+PINS L L H L H H H H
+expect A = 0x0005
+RISE
+PINS L L H L H H H H
+expect A = 0x0005
+FALL
+PINS L L H L H H H H
+expect A = 0x0005
+RISE
+PINS H H H H H L H H
+expect A = 0x0004
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0004
+RISE
+PINS H L H H H L H H
+expect A = 0x0004
+FALL
+PINS H H H H H L H H
+expect A = 0x0004
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS L H H H H H H H
+expect A = 0x0006
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0006
+RISE
+PINS L L H L H H H H
+expect A = 0x0006
+FALL
+PINS L L H L H H H H
+expect A = 0x0006
+RISE
+PINS H H H H H L H H
+expect A = 0x007d
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x007d
+RISE
+PINS H L H H H L H H
+expect A = 0x007d
+FALL
+PINS H H H H H L H H
+expect A = 0x007d
+RISE
+PINS L H H H H H H H
+expect A = 0x0007
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0007
+RISE
+PINS L L H L H H H H
+expect A = 0x0007
+FALL
+PINS L L H L H H H H
+expect A = 0x0007
+RISE
+PINS H H H H H L H H
+expect A = 0x007e
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x007e
+RISE
+PINS H L H H H L H H
+expect A = 0x007e
+FALL
+PINS H H H H H L H H
+expect A = 0x007e
+RISE
+PINS L H H H H H H H
+expect A = 0x0008
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0008
+RISE
+PINS L L H L H H H H
+expect A = 0x0008
+FALL
+PINS L L H L H H H H
+expect A = 0x0008
+RISE
+PINS H H H H H L H H
+expect A = 0x007f
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x007f
+RISE
+PINS H L H H H L H H
+expect A = 0x007f
+FALL
+PINS H H H H H L H H
+expect A = 0x007f
+RISE
+PINS L H H H H H H H
+expect A = 0x0009
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0009
+RISE
+PINS L L H L H H H H
+expect A = 0x0009
+FALL
+PINS L L H L H H H H
+expect A = 0x0009
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS L H H H H H H H
+expect A = 0x000a
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x000a
+RISE
+PINS L L H L H H H H
+expect A = 0x000a
+FALL
+PINS L L H L H H H H
+expect A = 0x000a
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+RISE
+PINS H H H H H H H H
+expect A = 0x000b
+drive D = 0xfd
+FALL
+PINS H L H L H H H H
+expect A = 0x000b
+RISE
+PINS H L H L H H H H
+expect A = 0x000b
+FALL
+PINS H L H L H H H H
+expect A = 0x000b
+RISE
+PINS H L H L H H H H
+expect A = 0x000b
+FALL
+PINS H H H H H H H H
+expect A = 0x000b
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x000c
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x000c
+RISE
+PINS L L H L H H H H
+expect A = 0x000c
+FALL
+PINS L L H L H H H H
+expect A = 0x000c
+RISE
+PINS H H H H H L H H
+expect A = 0x0002
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0002
+RISE
+PINS H L H H H L H H
+expect A = 0x0002
+FALL
+PINS H H H H H L H H
+expect A = 0x0002
+RISE
+PINS L H H H H H H H
+expect A = 0x000d
+drive D = 0x4f
+FALL
+PINS L L H L H H H H
+expect A = 0x000d
+RISE
+PINS L L H L H H H H
+expect A = 0x000d
+FALL
+PINS L L H L H H H H
+expect A = 0x000d
+RISE
+PINS H H H H H L H H
+expect A = 0x0003
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0003
+RISE
+PINS H L H H H L H H
+expect A = 0x0003
+FALL
+PINS H H H H H L H H
+expect A = 0x0003
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS L H H H H H H H
+expect A = 0x000e
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x000e
+RISE
+PINS L L H L H H H H
+expect A = 0x000e
+FALL
+PINS L L H L H H H H
+expect A = 0x000e
+RISE
+PINS H H H H H L H H
+expect A = 0x00fd
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fd
+RISE
+PINS H L H H H L H H
+expect A = 0x00fd
+FALL
+PINS H H H H H L H H
+expect A = 0x00fd
+RISE
+PINS L H H H H H H H
+expect A = 0x000f
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x000f
+RISE
+PINS L L H L H H H H
+expect A = 0x000f
+FALL
+PINS L L H L H H H H
+expect A = 0x000f
+RISE
+PINS H H H H H L H H
+expect A = 0x00fe
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fe
+RISE
+PINS H L H H H L H H
+expect A = 0x00fe
+FALL
+PINS H H H H H L H H
+expect A = 0x00fe
+RISE
+PINS L H H H H H H H
+expect A = 0x0010
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0010
+RISE
+PINS L L H L H H H H
+expect A = 0x0010
+FALL
+PINS L L H L H H H H
+expect A = 0x0010
+RISE
+PINS H H H H H L H H
+expect A = 0x00ff
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ff
+RISE
+PINS H L H H H L H H
+expect A = 0x00ff
+FALL
+PINS H H H H H L H H
+expect A = 0x00ff
+RISE
+PINS L H H H H H H H
+expect A = 0x0011
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0011
+RISE
+PINS L L H L H H H H
+expect A = 0x0011
+FALL
+PINS L L H L H H H H
+expect A = 0x0011
+RISE
+PINS H H H H H L H H
+expect A = 0x0080
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0080
+RISE
+PINS H L H H H L H H
+expect A = 0x0080
+FALL
+PINS H H H H H L H H
+expect A = 0x0080
+REGS 0x0012 0xffff 0x0000 0x0000 0xfd 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x81 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0012
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0012
+RISE
+PINS L L H L H H H H
+expect A = 0x0012
+FALL
+PINS L L H L H H H H
+expect A = 0x0012
+RISE
+PINS H H H H H L H H
+expect A = 0x0081
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0081
+RISE
+PINS H L H H H L H H
+expect A = 0x0081
+FALL
+PINS H H H H H L H H
+expect A = 0x0081
+RISE
+PINS H H H H H H H H
+expect A = 0x0013
+drive D = 0xab
+FALL
+PINS H L H L H H H H
+expect A = 0x0013
+RISE
+PINS H L H L H H H H
+expect A = 0x0013
+FALL
+PINS H L H L H H H H
+expect A = 0x0013
+RISE
+PINS H L H L H H H H
+expect A = 0x0013
+FALL
+PINS H H H H H H H H
+expect A = 0x0013
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0014
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0014
+RISE
+PINS L L H L H H H H
+expect A = 0x0014
+FALL
+PINS L L H L H H H H
+expect A = 0x0014
+RISE
+PINS H H H H H L H H
+expect A = 0x0082
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0082
+RISE
+PINS H L H H H L H H
+expect A = 0x0082
+FALL
+PINS H H H H H L H H
+expect A = 0x0082
+RISE
+PINS L H H H H H H H
+expect A = 0x0015
+drive D = 0x47
+FALL
+PINS L L H L H H H H
+expect A = 0x0015
+RISE
+PINS L L H L H H H H
+expect A = 0x0015
+FALL
+PINS L L H L H H H H
+expect A = 0x0015
+RISE
+PINS H H H H H L H H
+expect A = 0x0083
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0083
+RISE
+PINS H L H H H L H H
+expect A = 0x0083
+FALL
+PINS H H H H H L H H
+expect A = 0x0083
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS L H H H H H H H
+expect A = 0x0016
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0016
+RISE
+PINS L L H L H H H H
+expect A = 0x0016
+FALL
+PINS L L H L H H H H
+expect A = 0x0016
+RISE
+PINS H H H H H L H H
+expect A = 0xab84
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0xab84
+RISE
+PINS H L H H H L H H
+expect A = 0xab84
+FALL
+PINS H H H H H L H H
+expect A = 0xab84
+RISE
+PINS L H H H H H H H
+expect A = 0x0017
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0017
+RISE
+PINS L L H L H H H H
+expect A = 0x0017
+FALL
+PINS L L H L H H H H
+expect A = 0x0017
+RISE
+PINS H H H H H L H H
+expect A = 0xab85
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0xab85
+RISE
+PINS H L H H H L H H
+expect A = 0xab85
+FALL
+PINS H H H H H L H H
+expect A = 0xab85
+RISE
+PINS L H H H H H H H
+expect A = 0x0018
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0018
+RISE
+PINS L L H L H H H H
+expect A = 0x0018
+FALL
+PINS L L H L H H H H
+expect A = 0x0018
+RISE
+PINS H H H H H L H H
+expect A = 0xab86
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0xab86
+RISE
+PINS H L H H H L H H
+expect A = 0xab86
+FALL
+PINS H H H H H L H H
+expect A = 0xab86
+RISE
+PINS H H H H H H H H
+expect A = 0x0019
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0019
+RISE
+PINS H L H L H H H H
+expect A = 0x0019
+FALL
+PINS H L H L H H H H
+expect A = 0x0019
+RISE
+PINS H L H L H H H H
+expect A = 0x0019
+FALL
+PINS H H H H H H H H
+expect A = 0x0019
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x001a
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x001a
+RISE
+PINS L L H L H H H H
+expect A = 0x001a
+FALL
+PINS L L H L H H H H
+expect A = 0x001a
+RISE
+PINS H H H H H L H H
+expect A = 0xab87
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0xab87
+RISE
+PINS H L H H H L H H
+expect A = 0xab87
+FALL
+PINS H H H H H L H H
+expect A = 0xab87
+RISE
+PINS L H H H H H H H
+expect A = 0x001b
+drive D = 0x47
+FALL
+PINS L L H L H H H H
+expect A = 0x001b
+RISE
+PINS L L H L H H H H
+expect A = 0x001b
+FALL
+PINS L L H L H H H H
+expect A = 0x001b
+RISE
+PINS H H H H H L H H
+expect A = 0xab88
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0xab88
+RISE
+PINS H L H H H L H H
+expect A = 0xab88
+FALL
+PINS H H H H H L H H
+expect A = 0xab88
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x001c 0xffff 0x0000 0x0000 0x00 0xff 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x89 0 0 0
+print TAG=CYCLE SHAPES, edge by edge
+RISE
+PINS L H H H H H H H
+expect A = 0x001c
+drive D = 0x31
+FALL
+PINS L L H L H H H H
+expect A = 0x001c
+RISE
+PINS L L H L H H H H
+expect A = 0x001c
+FALL
+PINS L L H L H H H H
+expect A = 0x001c
+RISE
+PINS H H H H H L H H
+expect A = 0x0089
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0089
+RISE
+PINS H L H H H L H H
+expect A = 0x0089
+FALL
+PINS H H H H H L H H
+expect A = 0x0089
+RISE
+PINS H H H H H H H H
+expect A = 0x001d
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x001d
+RISE
+PINS H L H L H H H H
+expect A = 0x001d
+FALL
+PINS H L H L H H H H
+expect A = 0x001d
+RISE
+PINS H L H L H H H H
+expect A = 0x001d
+FALL
+PINS H H H H H H H H
+expect A = 0x001d
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x001e
+drive D = 0x40
+FALL
+PINS H L H L H H H H
+expect A = 0x001e
+RISE
+PINS H L H L H H H H
+expect A = 0x001e
+FALL
+PINS H L H L H H H H
+expect A = 0x001e
+RISE
+PINS H L H L H H H H
+expect A = 0x001e
+FALL
+PINS H H H H H H H H
+expect A = 0x001e
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x001f
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x001f
+RISE
+PINS L L H L H H H H
+expect A = 0x001f
+FALL
+PINS L L H L H H H H
+expect A = 0x001f
+RISE
+PINS H H H H H L H H
+expect A = 0x008a
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008a
+RISE
+PINS H L H H H L H H
+expect A = 0x008a
+FALL
+PINS H H H H H L H H
+expect A = 0x008a
+RISE
+PINS H H H H H H H H
+expect A = 0x0020
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0020
+RISE
+PINS H L H L H H H H
+expect A = 0x0020
+FALL
+PINS H L H L H H H H
+expect A = 0x0020
+RISE
+PINS H L H L H H H H
+expect A = 0x0020
+FALL
+PINS H H H H H H H H
+expect A = 0x0020
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0021
+drive D = 0x20
+FALL
+PINS H L H L H H H H
+expect A = 0x0021
+RISE
+PINS H L H L H H H H
+expect A = 0x0021
+FALL
+PINS H L H L H H H H
+expect A = 0x0021
+RISE
+PINS H L H L H H H H
+expect A = 0x0021
+FALL
+PINS H H H H H H H H
+expect A = 0x0021
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0022
+drive D = 0x01
+FALL
+PINS L L H L H H H H
+expect A = 0x0022
+RISE
+PINS L L H L H H H H
+expect A = 0x0022
+FALL
+PINS L L H L H H H H
+expect A = 0x0022
+RISE
+PINS H H H H H L H H
+expect A = 0x008b
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008b
+RISE
+PINS H L H H H L H H
+expect A = 0x008b
+FALL
+PINS H H H H H L H H
+expect A = 0x008b
+RISE
+PINS H H H H H H H H
+expect A = 0x0023
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0023
+RISE
+PINS H L H L H H H H
+expect A = 0x0023
+FALL
+PINS H L H L H H H H
+expect A = 0x0023
+RISE
+PINS H L H L H H H H
+expect A = 0x0023
+FALL
+PINS H H H H H H H H
+expect A = 0x0023
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0024
+drive D = 0x30
+FALL
+PINS H L H L H H H H
+expect A = 0x0024
+RISE
+PINS H L H L H H H H
+expect A = 0x0024
+FALL
+PINS H L H L H H H H
+expect A = 0x0024
+RISE
+PINS H L H L H H H H
+expect A = 0x0024
+FALL
+PINS H H H H H H H H
+expect A = 0x0024
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0025
+drive D = 0x11
+FALL
+PINS L L H L H H H H
+expect A = 0x0025
+RISE
+PINS L L H L H H H H
+expect A = 0x0025
+FALL
+PINS L L H L H H H H
+expect A = 0x0025
+RISE
+PINS H H H H H L H H
+expect A = 0x008c
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008c
+RISE
+PINS H L H H H L H H
+expect A = 0x008c
+FALL
+PINS H H H H H L H H
+expect A = 0x008c
+RISE
+PINS H H H H H H H H
+expect A = 0x0026
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0026
+RISE
+PINS H L H L H H H H
+expect A = 0x0026
+FALL
+PINS H L H L H H H H
+expect A = 0x0026
+RISE
+PINS H L H L H H H H
+expect A = 0x0026
+FALL
+PINS H H H H H H H H
+expect A = 0x0026
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0027
+drive D = 0x50
+FALL
+PINS H L H L H H H H
+expect A = 0x0027
+RISE
+PINS H L H L H H H H
+expect A = 0x0027
+FALL
+PINS H L H L H H H H
+expect A = 0x0027
+RISE
+PINS H L H L H H H H
+expect A = 0x0027
+FALL
+PINS H H H H H H H H
+expect A = 0x0027
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0028
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x0028
+RISE
+PINS L L H L H H H H
+expect A = 0x0028
+FALL
+PINS L L H L H H H H
+expect A = 0x0028
+RISE
+PINS H H H H H L H H
+expect A = 0x008d
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008d
+RISE
+PINS H L H H H L H H
+expect A = 0x008d
+FALL
+PINS H H H H H L H H
+expect A = 0x008d
+RISE
+PINS L H H H H H H H
+expect A = 0x0029
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0029
+RISE
+PINS L L H L H H H H
+expect A = 0x0029
+FALL
+PINS L L H L H H H H
+expect A = 0x0029
+RISE
+PINS H H H H H L H H
+expect A = 0x008e
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008e
+RISE
+PINS H L H H H L H H
+expect A = 0x008e
+FALL
+PINS H H H H H L H H
+expect A = 0x008e
+RISE
+PINS H H H H H H H H
+expect A = 0x002a
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x002a
+RISE
+PINS H L H L H H H H
+expect A = 0x002a
+FALL
+PINS H L H L H H H H
+expect A = 0x002a
+RISE
+PINS H L H L H H H H
+expect A = 0x002a
+FALL
+PINS H H H H H H H H
+expect A = 0x002a
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x002b
+drive D = 0x60
+FALL
+PINS H L H L H H H H
+expect A = 0x002b
+RISE
+PINS H L H L H H H H
+expect A = 0x002b
+FALL
+PINS H L H L H H H H
+expect A = 0x002b
+RISE
+PINS H L H L H H H H
+expect A = 0x002b
+FALL
+PINS H H H H H H H H
+expect A = 0x002b
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x002c
+drive D = 0xfd
+FALL
+PINS L L H L H H H H
+expect A = 0x002c
+RISE
+PINS L L H L H H H H
+expect A = 0x002c
+FALL
+PINS L L H L H H H H
+expect A = 0x002c
+RISE
+PINS H H H H H L H H
+expect A = 0x008f
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x008f
+RISE
+PINS H L H H H L H H
+expect A = 0x008f
+FALL
+PINS H H H H H L H H
+expect A = 0x008f
+RISE
+PINS L H H H H H H H
+expect A = 0x002d
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x002d
+RISE
+PINS L L H L H H H H
+expect A = 0x002d
+FALL
+PINS L L H L H H H H
+expect A = 0x002d
+RISE
+PINS H H H H H L H H
+expect A = 0x0090
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0090
+RISE
+PINS H L H H H L H H
+expect A = 0x0090
+FALL
+PINS H H H H H L H H
+expect A = 0x0090
+RISE
+PINS H H H H H H H H
+expect A = 0x002e
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x002e
+RISE
+PINS H L H L H H H H
+expect A = 0x002e
+FALL
+PINS H L H L H H H H
+expect A = 0x002e
+RISE
+PINS H L H L H H H H
+expect A = 0x002e
+FALL
+PINS H H H H H H H H
+expect A = 0x002e
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x002f
+drive D = 0x70
+FALL
+PINS H L H L H H H H
+expect A = 0x002f
+RISE
+PINS H L H L H H H H
+expect A = 0x002f
+FALL
+PINS H L H L H H H H
+expect A = 0x002f
+RISE
+PINS H L H L H H H H
+expect A = 0x002f
+FALL
+PINS H H H H H H H H
+expect A = 0x002f
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0030
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0030
+RISE
+PINS L L H L H H H H
+expect A = 0x0030
+FALL
+PINS L L H L H H H H
+expect A = 0x0030
+RISE
+PINS H H H H H L H H
+expect A = 0x0091
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0091
+RISE
+PINS H L H H H L H H
+expect A = 0x0091
+FALL
+PINS H H H H H L H H
+expect A = 0x0091
+RISE
+PINS H H H H H H H H
+expect A = 0x0031
+drive D = 0x5a
+FALL
+PINS H L H L H H H H
+expect A = 0x0031
+RISE
+PINS H L H L H H H H
+expect A = 0x0031
+FALL
+PINS H L H L H H H H
+expect A = 0x0031
+RISE
+PINS H L H L H H H H
+expect A = 0x0031
+FALL
+PINS H H H H H H H H
+expect A = 0x0031
+clear D
+print TAG=shape M1 4T
+RISE
+PINS L H H H H H H H
+expect A = 0x0032
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0032
+RISE
+PINS L L H L H H H H
+expect A = 0x0032
+FALL
+PINS L L H L H H H H
+expect A = 0x0032
+RISE
+PINS H H H H H L H H
+expect A = 0x0092
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0092
+RISE
+PINS H L H H H L H H
+expect A = 0x0092
+FALL
+PINS H H H H H L H H
+expect A = 0x0092
+REGS 0x0033 0x4000 0x6000 0x7000 0x5a 0xff 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x93 0 0 0
+print TAG=shape M1 5T (PUSH)
+RISE
+PINS L H H H H H H H
+expect A = 0x0033
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x0033
+RISE
+PINS L L H L H H H H
+expect A = 0x0033
+FALL
+PINS L L H L H H H H
+expect A = 0x0033
+RISE
+PINS H H H H H L H H
+expect A = 0x0093
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0093
+RISE
+PINS H L H H H L H H
+expect A = 0x0093
+FALL
+PINS H H H H H L H H
+expect A = 0x0093
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+FALL
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+REGS 0x0034 0x3ffe 0x6000 0x7000 0x5a 0xff 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x94 0 0 0
+print TAG=shape M1 6T (INC ss)
+RISE
+PINS L H H H H H H H
+expect A = 0x0034
+drive D = 0x23
+FALL
+PINS L L H L H H H H
+expect A = 0x0034
+RISE
+PINS L L H L H H H H
+expect A = 0x0034
+FALL
+PINS L L H L H H H H
+expect A = 0x0034
+RISE
+PINS H H H H H L H H
+expect A = 0x0094
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0094
+RISE
+PINS H L H H H L H H
+expect A = 0x0094
+FALL
+PINS H H H H H L H H
+expect A = 0x0094
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x0035 0x3ffe 0x6000 0x7000 0x5a 0xff 0x30 0x00 0x50 0x00 0x20 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x95 0 0 0
+print TAG=shape MR 3T
+RISE
+PINS L H H H H H H H
+expect A = 0x0035
+drive D = 0x46
+FALL
+PINS L L H L H H H H
+expect A = 0x0035
+RISE
+PINS L L H L H H H H
+expect A = 0x0035
+FALL
+PINS L L H L H H H H
+expect A = 0x0035
+RISE
+PINS H H H H H L H H
+expect A = 0x0095
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0095
+RISE
+PINS H L H H H L H H
+expect A = 0x0095
+FALL
+PINS H H H H H L H H
+expect A = 0x0095
+RISE
+PINS H H H H H H H H
+expect A = 0x2001
+drive D = 0x69
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H H H H H H H H
+expect A = 0x2001
+clear D
+REGS 0x0036 0x3ffe 0x6000 0x7000 0x5a 0xff 0x69 0x00 0x50 0x00 0x20 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x96 0 0 0
+print TAG=shape MR 4T (INC (HL) read)
+RISE
+PINS L H H H H H H H
+expect A = 0x0036
+drive D = 0x34
+FALL
+PINS L L H L H H H H
+expect A = 0x0036
+RISE
+PINS L L H L H H H H
+expect A = 0x0036
+FALL
+PINS L L H L H H H H
+expect A = 0x0036
+RISE
+PINS H H H H H L H H
+expect A = 0x0096
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0096
+RISE
+PINS H L H H H L H H
+expect A = 0x0096
+FALL
+PINS H H H H H L H H
+expect A = 0x0096
+RISE
+PINS H H H H H H H H
+expect A = 0x2001
+drive D = 0x69
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H H H H H H H H
+expect A = 0x2001
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x2001
+FALL
+PINS H L H H H H H H
+expect A = 0x2001
+expect D = 0x6a
+RISE
+PINS H L H H H H H H
+expect A = 0x2001
+expect D = 0x6a
+FALL
+PINS H L H H L H H H
+expect A = 0x2001
+expect D = 0x6a
+RISE
+PINS H L H H L H H H
+expect A = 0x2001
+expect D = 0x6a
+FALL
+PINS H H H H H H H H
+expect A = 0x2001
+expect D = 0x6a
+REGS 0x0037 0x3ffe 0x6000 0x7000 0x5a 0x01 0x69 0x00 0x50 0x00 0x20 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x97 0 0 0
+print TAG=shape MR 5T (LD (IX+d),n operand)
+RISE
+PINS L H H H H H H H
+expect A = 0x0037
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x0037
+RISE
+PINS L L H L H H H H
+expect A = 0x0037
+FALL
+PINS L L H L H H H H
+expect A = 0x0037
+RISE
+PINS H H H H H L H H
+expect A = 0x0097
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0097
+RISE
+PINS H L H H H L H H
+expect A = 0x0097
+FALL
+PINS H H H H H L H H
+expect A = 0x0097
+RISE
+PINS L H H H H H H H
+expect A = 0x0038
+drive D = 0x36
+FALL
+PINS L L H L H H H H
+expect A = 0x0038
+RISE
+PINS L L H L H H H H
+expect A = 0x0038
+FALL
+PINS L L H L H H H H
+expect A = 0x0038
+RISE
+PINS H H H H H L H H
+expect A = 0x0098
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0098
+RISE
+PINS H L H H H L H H
+expect A = 0x0098
+FALL
+PINS H H H H H L H H
+expect A = 0x0098
+RISE
+PINS H H H H H H H H
+expect A = 0x0039
+drive D = 0x04
+FALL
+PINS H L H L H H H H
+expect A = 0x0039
+RISE
+PINS H L H L H H H H
+expect A = 0x0039
+FALL
+PINS H L H L H H H H
+expect A = 0x0039
+RISE
+PINS H L H L H H H H
+expect A = 0x0039
+FALL
+PINS H H H H H H H H
+expect A = 0x0039
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x003a
+drive D = 0x99
+FALL
+PINS H L H L H H H H
+expect A = 0x003a
+RISE
+PINS H L H L H H H H
+expect A = 0x003a
+FALL
+PINS H L H L H H H H
+expect A = 0x003a
+RISE
+PINS H L H L H H H H
+expect A = 0x003a
+FALL
+PINS H H H H H H H H
+expect A = 0x003a
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x6004
+FALL
+PINS H L H H H H H H
+expect A = 0x6004
+expect D = 0x99
+RISE
+PINS H L H H H H H H
+expect A = 0x6004
+expect D = 0x99
+FALL
+PINS H L H H L H H H
+expect A = 0x6004
+expect D = 0x99
+RISE
+PINS H L H H L H H H
+expect A = 0x6004
+expect D = 0x99
+FALL
+PINS H H H H H H H H
+expect A = 0x6004
+expect D = 0x99
+REGS 0x003b 0x3ffe 0x6000 0x7000 0x5a 0x01 0x69 0x00 0x50 0x00 0x20 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x99 0 0 0
+print TAG=shape MW 3T
+RISE
+PINS L H H H H H H H
+expect A = 0x003b
+drive D = 0x70
+FALL
+PINS L L H L H H H H
+expect A = 0x003b
+RISE
+PINS L L H L H H H H
+expect A = 0x003b
+FALL
+PINS L L H L H H H H
+expect A = 0x003b
+RISE
+PINS H H H H H L H H
+expect A = 0x0099
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0099
+RISE
+PINS H L H H H L H H
+expect A = 0x0099
+FALL
+PINS H H H H H L H H
+expect A = 0x0099
+RISE
+PINS H H H H H H H H
+expect A = 0x2001
+FALL
+PINS H L H H H H H H
+expect A = 0x2001
+expect D = 0x69
+RISE
+PINS H L H H H H H H
+expect A = 0x2001
+expect D = 0x69
+FALL
+PINS H L H H L H H H
+expect A = 0x2001
+expect D = 0x69
+RISE
+PINS H L H H L H H H
+expect A = 0x2001
+expect D = 0x69
+FALL
+PINS H H H H H H H H
+expect A = 0x2001
+expect D = 0x69
+REGS 0x003c 0x3ffe 0x6000 0x7000 0x5a 0x01 0x69 0x00 0x50 0x00 0x20 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x9a 0 0 0
+print TAG=shape MW 5T (LDI write)
+RISE
+PINS L H H H H H H H
+expect A = 0x003c
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x003c
+RISE
+PINS L L H L H H H H
+expect A = 0x003c
+FALL
+PINS L L H L H H H H
+expect A = 0x003c
+RISE
+PINS H H H H H L H H
+expect A = 0x009a
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009a
+RISE
+PINS H L H H H L H H
+expect A = 0x009a
+FALL
+PINS H H H H H L H H
+expect A = 0x009a
+RISE
+PINS L H H H H H H H
+expect A = 0x003d
+drive D = 0xa0
+FALL
+PINS L L H L H H H H
+expect A = 0x003d
+RISE
+PINS L L H L H H H H
+expect A = 0x003d
+FALL
+PINS L L H L H H H H
+expect A = 0x003d
+RISE
+PINS H H H H H L H H
+expect A = 0x009b
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009b
+RISE
+PINS H L H H H L H H
+expect A = 0x009b
+FALL
+PINS H H H H H L H H
+expect A = 0x009b
+RISE
+PINS H H H H H H H H
+expect A = 0x2001
+drive D = 0x69
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H L H L H H H H
+expect A = 0x2001
+RISE
+PINS H L H L H H H H
+expect A = 0x2001
+FALL
+PINS H H H H H H H H
+expect A = 0x2001
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x5000
+FALL
+PINS H L H H H H H H
+expect A = 0x5000
+expect D = 0x69
+RISE
+PINS H L H H H H H H
+expect A = 0x5000
+expect D = 0x69
+FALL
+PINS H L H H L H H H
+expect A = 0x5000
+expect D = 0x69
+RISE
+PINS H L H H L H H H
+expect A = 0x5000
+expect D = 0x69
+FALL
+PINS H H H H H H H H
+expect A = 0x5000
+expect D = 0x69
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x003e 0x3ffe 0x6000 0x7000 0x5a 0x05 0x68 0xff 0x50 0x01 0x20 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x9c 0 0 0
+print TAG=shape IOR 4T
+RISE
+PINS L H H H H H H H
+expect A = 0x003e
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x003e
+RISE
+PINS L L H L H H H H
+expect A = 0x003e
+FALL
+PINS L L H L H H H H
+expect A = 0x003e
+RISE
+PINS H H H H H L H H
+expect A = 0x009c
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009c
+RISE
+PINS H L H H H L H H
+expect A = 0x009c
+FALL
+PINS H H H H H L H H
+expect A = 0x009c
+RISE
+PINS H H H H H H H H
+expect A = 0x003f
+drive D = 0x40
+FALL
+PINS H L H L H H H H
+expect A = 0x003f
+RISE
+PINS H L H L H H H H
+expect A = 0x003f
+FALL
+PINS H L H L H H H H
+expect A = 0x003f
+RISE
+PINS H L H L H H H H
+expect A = 0x003f
+FALL
+PINS H H H H H H H H
+expect A = 0x003f
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x5a40
+FALL
+PINS H H H H H H H H
+expect A = 0x5a40
+RISE
+PINS H H L L H H H H
+expect A = 0x5a40
+drive D = 0xa3
+FALL
+PINS H H L L H H H H
+expect A = 0x5a40
+RISE
+PINS H H L L H H H H
+expect A = 0x5a40
+FALL
+PINS H H L L H H H H
+expect A = 0x5a40
+RISE
+PINS H H L L H H H H
+expect A = 0x5a40
+FALL
+PINS H H H H H H H H
+expect A = 0x5a40
+clear D
+REGS 0x0040 0x3ffe 0x6000 0x7000 0xa3 0x05 0x68 0xff 0x50 0x01 0x20 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x9d 0 0 0
+print TAG=shape IOW 4T
+RISE
+PINS L H H H H H H H
+expect A = 0x0040
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x0040
+RISE
+PINS L L H L H H H H
+expect A = 0x0040
+FALL
+PINS L L H L H H H H
+expect A = 0x0040
+RISE
+PINS H H H H H L H H
+expect A = 0x009d
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009d
+RISE
+PINS H L H H H L H H
+expect A = 0x009d
+FALL
+PINS H H H H H L H H
+expect A = 0x009d
+RISE
+PINS H H H H H H H H
+expect A = 0x0041
+drive D = 0x41
+FALL
+PINS H L H L H H H H
+expect A = 0x0041
+RISE
+PINS H L H L H H H H
+expect A = 0x0041
+FALL
+PINS H L H L H H H H
+expect A = 0x0041
+RISE
+PINS H L H L H H H H
+expect A = 0x0041
+FALL
+PINS H H H H H H H H
+expect A = 0x0041
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0xa341
+FALL
+PINS H H H H H H H H
+expect A = 0xa341
+expect D = 0xa3
+RISE
+PINS H H L H L H H H
+expect A = 0xa341
+expect D = 0xa3
+FALL
+PINS H H L H L H H H
+expect A = 0xa341
+expect D = 0xa3
+RISE
+PINS H H L H L H H H
+expect A = 0xa341
+expect D = 0xa3
+FALL
+PINS H H L H L H H H
+expect A = 0xa341
+expect D = 0xa3
+RISE
+PINS H H L H L H H H
+expect A = 0xa341
+expect D = 0xa3
+FALL
+PINS H H H H H H H H
+expect A = 0xa341
+expect D = 0xa3
+REGS 0x0042 0x3ffe 0x6000 0x7000 0xa3 0x05 0x68 0xff 0x50 0x01 0x20 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x9e 0 0 0
+print TAG=shape X 5T (indexed address)
+RISE
+PINS L H H H H H H H
+expect A = 0x0042
+drive D = 0xfd
+FALL
+PINS L L H L H H H H
+expect A = 0x0042
+RISE
+PINS L L H L H H H H
+expect A = 0x0042
+FALL
+PINS L L H L H H H H
+expect A = 0x0042
+RISE
+PINS H H H H H L H H
+expect A = 0x009e
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009e
+RISE
+PINS H L H H H L H H
+expect A = 0x009e
+FALL
+PINS H H H H H L H H
+expect A = 0x009e
+RISE
+PINS L H H H H H H H
+expect A = 0x0043
+drive D = 0x4e
+FALL
+PINS L L H L H H H H
+expect A = 0x0043
+RISE
+PINS L L H L H H H H
+expect A = 0x0043
+FALL
+PINS L L H L H H H H
+expect A = 0x0043
+RISE
+PINS H H H H H L H H
+expect A = 0x009f
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x009f
+RISE
+PINS H L H H H L H H
+expect A = 0x009f
+FALL
+PINS H H H H H L H H
+expect A = 0x009f
+RISE
+PINS H H H H H H H H
+expect A = 0x0044
+drive D = 0x03
+FALL
+PINS H L H L H H H H
+expect A = 0x0044
+RISE
+PINS H L H L H H H H
+expect A = 0x0044
+FALL
+PINS H L H L H H H H
+expect A = 0x0044
+RISE
+PINS H L H L H H H H
+expect A = 0x0044
+FALL
+PINS H H H H H H H H
+expect A = 0x0044
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x7003
+drive D = 0xe1
+FALL
+PINS H L H L H H H H
+expect A = 0x7003
+RISE
+PINS H L H L H H H H
+expect A = 0x7003
+FALL
+PINS H L H L H H H H
+expect A = 0x7003
+RISE
+PINS H L H L H H H H
+expect A = 0x7003
+FALL
+PINS H H H H H H H H
+expect A = 0x7003
+clear D
+REGS 0x0045 0x3ffe 0x6000 0x7000 0xa3 0x05 0x68 0xe1 0x50 0x01 0x20 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa0 0 0 0
+print TAG=shape X 4+3 (ADD HL)
+RISE
+PINS L H H H H H H H
+expect A = 0x0045
+drive D = 0x19
+FALL
+PINS L L H L H H H H
+expect A = 0x0045
+RISE
+PINS L L H L H H H H
+expect A = 0x0045
+FALL
+PINS L L H L H H H H
+expect A = 0x0045
+RISE
+PINS H H H H H L H H
+expect A = 0x00a0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a0
+RISE
+PINS H L H H H L H H
+expect A = 0x00a0
+FALL
+PINS H H H H H L H H
+expect A = 0x00a0
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x0046 0x3ffe 0x6000 0x7000 0xa3 0x04 0x68 0xe1 0x50 0x01 0x70 0x03 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa1 0 0 0
+print TAG=shape X 5T (JR taken)
+RISE
+PINS L H H H H H H H
+expect A = 0x0046
+drive D = 0x18
+FALL
+PINS L L H L H H H H
+expect A = 0x0046
+RISE
+PINS L L H L H H H H
+expect A = 0x0046
+FALL
+PINS L L H L H H H H
+expect A = 0x0046
+RISE
+PINS H H H H H L H H
+expect A = 0x00a1
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a1
+RISE
+PINS H L H H H L H H
+expect A = 0x00a1
+FALL
+PINS H H H H H L H H
+expect A = 0x00a1
+RISE
+PINS H H H H H H H H
+expect A = 0x0047
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0047
+RISE
+PINS H L H L H H H H
+expect A = 0x0047
+FALL
+PINS H L H L H H H H
+expect A = 0x0047
+RISE
+PINS H L H L H H H H
+expect A = 0x0047
+FALL
+PINS H H H H H H H H
+expect A = 0x0047
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x0048 0x3ffe 0x6000 0x7000 0xa3 0x04 0x68 0xe1 0x50 0x01 0x70 0x03 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa2 0 0 0
+print TAG=shape EX (SP),HL
+RISE
+PINS L H H H H H H H
+expect A = 0x0048
+drive D = 0xe3
+FALL
+PINS L L H L H H H H
+expect A = 0x0048
+RISE
+PINS L L H L H H H H
+expect A = 0x0048
+FALL
+PINS L L H L H H H H
+expect A = 0x0048
+RISE
+PINS H H H H H L H H
+expect A = 0x00a2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a2
+RISE
+PINS H L H H H L H H
+expect A = 0x00a2
+FALL
+PINS H H H H H L H H
+expect A = 0x00a2
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffe
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffe
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffe
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+drive D = 0x30
+FALL
+PINS H L H L H H H H
+expect A = 0x3fff
+RISE
+PINS H L H L H H H H
+expect A = 0x3fff
+FALL
+PINS H L H L H H H H
+expect A = 0x3fff
+RISE
+PINS H L H L H H H H
+expect A = 0x3fff
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+FALL
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x70
+RISE
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x70
+FALL
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x70
+RISE
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x70
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+expect D = 0x70
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x03
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x03
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x03
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x03
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+expect D = 0x03
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x0049 0x3ffe 0x6000 0x7000 0xa3 0x04 0x68 0xe1 0x50 0x01 0x30 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa3 0 0 0
+print TAG=shape DDCB (IX+d)
+RISE
+PINS L H H H H H H H
+expect A = 0x0049
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x0049
+RISE
+PINS L L H L H H H H
+expect A = 0x0049
+FALL
+PINS L L H L H H H H
+expect A = 0x0049
+RISE
+PINS H H H H H L H H
+expect A = 0x00a3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a3
+RISE
+PINS H L H H H L H H
+expect A = 0x00a3
+FALL
+PINS H H H H H L H H
+expect A = 0x00a3
+RISE
+PINS L H H H H H H H
+expect A = 0x004a
+drive D = 0xcb
+FALL
+PINS L L H L H H H H
+expect A = 0x004a
+RISE
+PINS L L H L H H H H
+expect A = 0x004a
+FALL
+PINS L L H L H H H H
+expect A = 0x004a
+RISE
+PINS H H H H H L H H
+expect A = 0x00a4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a4
+RISE
+PINS H L H H H L H H
+expect A = 0x00a4
+FALL
+PINS H H H H H L H H
+expect A = 0x00a4
+RISE
+PINS H H H H H H H H
+expect A = 0x004b
+drive D = 0x02
+FALL
+PINS H L H L H H H H
+expect A = 0x004b
+RISE
+PINS H L H L H H H H
+expect A = 0x004b
+FALL
+PINS H L H L H H H H
+expect A = 0x004b
+RISE
+PINS H L H L H H H H
+expect A = 0x004b
+FALL
+PINS H H H H H H H H
+expect A = 0x004b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x004c
+drive D = 0x06
+FALL
+PINS H L H L H H H H
+expect A = 0x004c
+RISE
+PINS H L H L H H H H
+expect A = 0x004c
+FALL
+PINS H L H L H H H H
+expect A = 0x004c
+RISE
+PINS H L H L H H H H
+expect A = 0x004c
+FALL
+PINS H H H H H H H H
+expect A = 0x004c
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x6002
+drive D = 0xc7
+FALL
+PINS H L H L H H H H
+expect A = 0x6002
+RISE
+PINS H L H L H H H H
+expect A = 0x6002
+FALL
+PINS H L H L H H H H
+expect A = 0x6002
+RISE
+PINS H L H L H H H H
+expect A = 0x6002
+FALL
+PINS H H H H H H H H
+expect A = 0x6002
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x6002
+FALL
+PINS H L H H H H H H
+expect A = 0x6002
+expect D = 0x8f
+RISE
+PINS H L H H H H H H
+expect A = 0x6002
+expect D = 0x8f
+FALL
+PINS H L H H L H H H
+expect A = 0x6002
+expect D = 0x8f
+RISE
+PINS H L H H L H H H
+expect A = 0x6002
+expect D = 0x8f
+FALL
+PINS H H H H H H H H
+expect A = 0x6002
+expect D = 0x8f
+REGS 0x004d 0x3ffe 0x6000 0x7000 0xa3 0x81 0x68 0xe1 0x50 0x01 0x30 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa5 0 0 0
+print TAG=shape CALL nn
+RISE
+PINS L H H H H H H H
+expect A = 0x004d
+drive D = 0xcd
+FALL
+PINS L L H L H H H H
+expect A = 0x004d
+RISE
+PINS L L H L H H H H
+expect A = 0x004d
+FALL
+PINS L L H L H H H H
+expect A = 0x004d
+RISE
+PINS H H H H H L H H
+expect A = 0x00a5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a5
+RISE
+PINS H L H H H L H H
+expect A = 0x00a5
+FALL
+PINS H H H H H L H H
+expect A = 0x00a5
+RISE
+PINS H H H H H H H H
+expect A = 0x004e
+drive D = 0x34
+FALL
+PINS H L H L H H H H
+expect A = 0x004e
+RISE
+PINS H L H L H H H H
+expect A = 0x004e
+FALL
+PINS H L H L H H H H
+expect A = 0x004e
+RISE
+PINS H L H L H H H H
+expect A = 0x004e
+FALL
+PINS H H H H H H H H
+expect A = 0x004e
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x004f
+drive D = 0x12
+FALL
+PINS H L H L H H H H
+expect A = 0x004f
+RISE
+PINS H L H L H H H H
+expect A = 0x004f
+FALL
+PINS H L H L H H H H
+expect A = 0x004f
+RISE
+PINS H L H L H H H H
+expect A = 0x004f
+FALL
+PINS H H H H H H H H
+expect A = 0x004f
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffd
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffd
+expect D = 0x00
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffc
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x50
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x50
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x50
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x50
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffc
+expect D = 0x50
+REGS 0x1234 0x3ffc 0x6000 0x7000 0xa3 0x81 0x68 0xe1 0x50 0x01 0x30 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa6 0 0 0
+print TAG=shape RET
+RISE
+PINS L H H H H H H H
+expect A = 0x1234
+drive D = 0xc9
+FALL
+PINS L L H L H H H H
+expect A = 0x1234
+RISE
+PINS L L H L H H H H
+expect A = 0x1234
+FALL
+PINS L L H L H H H H
+expect A = 0x1234
+RISE
+PINS H H H H H L H H
+expect A = 0x00a6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a6
+RISE
+PINS H L H H H L H H
+expect A = 0x00a6
+FALL
+PINS H H H H H L H H
+expect A = 0x00a6
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffc
+drive D = 0x50
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffc
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffc
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffc
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffc
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffc
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffd
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffd
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffd
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffd
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffd
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffd
+clear D
+REGS 0x0050 0x3ffe 0x6000 0x7000 0xa3 0x81 0x68 0xe1 0x50 0x01 0x30 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa7 0 0 0
+print TAG=shape IN r,(C)
+RISE
+PINS L H H H H H H H
+expect A = 0x0050
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0050
+RISE
+PINS L L H L H H H H
+expect A = 0x0050
+FALL
+PINS L L H L H H H H
+expect A = 0x0050
+RISE
+PINS H H H H H L H H
+expect A = 0x00a7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a7
+RISE
+PINS H L H H H L H H
+expect A = 0x00a7
+FALL
+PINS H H H H H L H H
+expect A = 0x00a7
+RISE
+PINS L H H H H H H H
+expect A = 0x0051
+drive D = 0x50
+FALL
+PINS L L H L H H H H
+expect A = 0x0051
+RISE
+PINS L L H L H H H H
+expect A = 0x0051
+FALL
+PINS L L H L H H H H
+expect A = 0x0051
+RISE
+PINS H H H H H L H H
+expect A = 0x00a8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a8
+RISE
+PINS H L H H H L H H
+expect A = 0x00a8
+FALL
+PINS H H H H H L H H
+expect A = 0x00a8
+RISE
+PINS H H H H H H H H
+expect A = 0x68e1
+FALL
+PINS H H H H H H H H
+expect A = 0x68e1
+RISE
+PINS H H L L H H H H
+expect A = 0x68e1
+drive D = 0x63
+FALL
+PINS H H L L H H H H
+expect A = 0x68e1
+RISE
+PINS H H L L H H H H
+expect A = 0x68e1
+FALL
+PINS H H L L H H H H
+expect A = 0x68e1
+RISE
+PINS H H L L H H H H
+expect A = 0x68e1
+FALL
+PINS H H H H H H H H
+expect A = 0x68e1
+clear D
+REGS 0x0052 0x3ffe 0x6000 0x7000 0xa3 0x05 0x68 0xe1 0x63 0x01 0x30 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xa9 0 0 0
+print TAG=shape OUTI
+RISE
+PINS L H H H H H H H
+expect A = 0x0052
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0052
+RISE
+PINS L L H L H H H H
+expect A = 0x0052
+FALL
+PINS L L H L H H H H
+expect A = 0x0052
+RISE
+PINS H H H H H L H H
+expect A = 0x00a9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00a9
+RISE
+PINS H L H H H L H H
+expect A = 0x00a9
+FALL
+PINS H H H H H L H H
+expect A = 0x00a9
+RISE
+PINS L H H H H H H H
+expect A = 0x0053
+drive D = 0xa3
+FALL
+PINS L L H L H H H H
+expect A = 0x0053
+RISE
+PINS L L H L H H H H
+expect A = 0x0053
+FALL
+PINS L L H L H H H H
+expect A = 0x0053
+RISE
+PINS H H H H H L H H
+expect A = 0x00aa
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00aa
+RISE
+PINS H L H H H L H H
+expect A = 0x00aa
+FALL
+PINS H H H H H L H H
+expect A = 0x00aa
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3000
+drive D = 0xeb
+FALL
+PINS H L H L H H H H
+expect A = 0x3000
+RISE
+PINS H L H L H H H H
+expect A = 0x3000
+FALL
+PINS H L H L H H H H
+expect A = 0x3000
+RISE
+PINS H L H L H H H H
+expect A = 0x3000
+FALL
+PINS H H H H H H H H
+expect A = 0x3000
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x67e1
+FALL
+PINS H H H H H H H H
+expect A = 0x67e1
+expect D = 0xeb
+RISE
+PINS H H L H L H H H
+expect A = 0x67e1
+expect D = 0xeb
+FALL
+PINS H H L H L H H H
+expect A = 0x67e1
+expect D = 0xeb
+RISE
+PINS H H L H L H H H
+expect A = 0x67e1
+expect D = 0xeb
+FALL
+PINS H H L H L H H H
+expect A = 0x67e1
+expect D = 0xeb
+RISE
+PINS H H L H L H H H
+expect A = 0x67e1
+expect D = 0xeb
+FALL
+PINS H H H H H H H H
+expect A = 0x67e1
+expect D = 0xeb
+REGS 0x0054 0x3ffe 0x6000 0x7000 0xa3 0x07 0x67 0xe1 0x63 0x01 0x30 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xab 0 0 0
+print TAG=shape INI
+RISE
+PINS L H H H H H H H
+expect A = 0x0054
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0054
+RISE
+PINS L L H L H H H H
+expect A = 0x0054
+FALL
+PINS L L H L H H H H
+expect A = 0x0054
+RISE
+PINS H H H H H L H H
+expect A = 0x00ab
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ab
+RISE
+PINS H L H H H L H H
+expect A = 0x00ab
+FALL
+PINS H H H H H L H H
+expect A = 0x00ab
+RISE
+PINS L H H H H H H H
+expect A = 0x0055
+drive D = 0xa2
+FALL
+PINS L L H L H H H H
+expect A = 0x0055
+RISE
+PINS L L H L H H H H
+expect A = 0x0055
+FALL
+PINS L L H L H H H H
+expect A = 0x0055
+RISE
+PINS H H H H H L H H
+expect A = 0x00ac
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ac
+RISE
+PINS H L H H H L H H
+expect A = 0x00ac
+FALL
+PINS H H H H H L H H
+expect A = 0x00ac
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x67e1
+FALL
+PINS H H H H H H H H
+expect A = 0x67e1
+RISE
+PINS H H L L H H H H
+expect A = 0x67e1
+drive D = 0xaa
+FALL
+PINS H H L L H H H H
+expect A = 0x67e1
+RISE
+PINS H H L L H H H H
+expect A = 0x67e1
+FALL
+PINS H H L L H H H H
+expect A = 0x67e1
+RISE
+PINS H H L L H H H H
+expect A = 0x67e1
+FALL
+PINS H H H H H H H H
+expect A = 0x67e1
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3001
+FALL
+PINS H L H H H H H H
+expect A = 0x3001
+expect D = 0xaa
+RISE
+PINS H L H H H H H H
+expect A = 0x3001
+expect D = 0xaa
+FALL
+PINS H L H H L H H H
+expect A = 0x3001
+expect D = 0xaa
+RISE
+PINS H L H H L H H H
+expect A = 0x3001
+expect D = 0xaa
+FALL
+PINS H H H H H H H H
+expect A = 0x3001
+expect D = 0xaa
+REGS 0x0056 0x3ffe 0x6000 0x7000 0xa3 0x07 0x66 0xe1 0x63 0x01 0x30 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xad 0 0 0
+print TAG=shape RLD
+RISE
+PINS L H H H H H H H
+expect A = 0x0056
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0056
+RISE
+PINS L L H L H H H H
+expect A = 0x0056
+FALL
+PINS L L H L H H H H
+expect A = 0x0056
+RISE
+PINS H H H H H L H H
+expect A = 0x00ad
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ad
+RISE
+PINS H L H H H L H H
+expect A = 0x00ad
+FALL
+PINS H H H H H L H H
+expect A = 0x00ad
+RISE
+PINS L H H H H H H H
+expect A = 0x0057
+drive D = 0x6f
+FALL
+PINS L L H L H H H H
+expect A = 0x0057
+RISE
+PINS L L H L H H H H
+expect A = 0x0057
+FALL
+PINS L L H L H H H H
+expect A = 0x0057
+RISE
+PINS H H H H H L H H
+expect A = 0x00ae
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ae
+RISE
+PINS H L H H H L H H
+expect A = 0x00ae
+FALL
+PINS H H H H H L H H
+expect A = 0x00ae
+RISE
+PINS H H H H H H H H
+expect A = 0x3002
+drive D = 0xb0
+FALL
+PINS H L H L H H H H
+expect A = 0x3002
+RISE
+PINS H L H L H H H H
+expect A = 0x3002
+FALL
+PINS H L H L H H H H
+expect A = 0x3002
+RISE
+PINS H L H L H H H H
+expect A = 0x3002
+FALL
+PINS H H H H H H H H
+expect A = 0x3002
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3002
+FALL
+PINS H L H H H H H H
+expect A = 0x3002
+expect D = 0x03
+RISE
+PINS H L H H H H H H
+expect A = 0x3002
+expect D = 0x03
+FALL
+PINS H L H H L H H H
+expect A = 0x3002
+expect D = 0x03
+RISE
+PINS H L H H L H H H
+expect A = 0x3002
+expect D = 0x03
+FALL
+PINS H H H H H H H H
+expect A = 0x3002
+expect D = 0x03
+REGS 0x0058 0x3ffe 0x6000 0x7000 0xab 0x81 0x66 0xe1 0x63 0x01 0x30 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xaf 0 0 0
+print TAG=shape LD A,I
+RISE
+PINS L H H H H H H H
+expect A = 0x0058
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0058
+RISE
+PINS L L H L H H H H
+expect A = 0x0058
+FALL
+PINS L L H L H H H H
+expect A = 0x0058
+RISE
+PINS H H H H H L H H
+expect A = 0x00af
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00af
+RISE
+PINS H L H H H L H H
+expect A = 0x00af
+FALL
+PINS H H H H H L H H
+expect A = 0x00af
+RISE
+PINS L H H H H H H H
+expect A = 0x0059
+drive D = 0x57
+FALL
+PINS L L H L H H H H
+expect A = 0x0059
+RISE
+PINS L L H L H H H H
+expect A = 0x0059
+FALL
+PINS L L H L H H H H
+expect A = 0x0059
+RISE
+PINS H H H H H L H H
+expect A = 0x00b0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b0
+RISE
+PINS H L H H H L H H
+expect A = 0x00b0
+FALL
+PINS H H H H H L H H
+expect A = 0x00b0
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x005a 0x3ffe 0x6000 0x7000 0x00 0x41 0x66 0xe1 0x63 0x01 0x30 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xb1 0 0 0
+print TAG=shape DJNZ not taken
+RISE
+PINS L H H H H H H H
+expect A = 0x005a
+drive D = 0x10
+FALL
+PINS L L H L H H H H
+expect A = 0x005a
+RISE
+PINS L L H L H H H H
+expect A = 0x005a
+FALL
+PINS L L H L H H H H
+expect A = 0x005a
+RISE
+PINS H H H H H L H H
+expect A = 0x00b1
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b1
+RISE
+PINS H L H H H L H H
+expect A = 0x00b1
+FALL
+PINS H H H H H L H H
+expect A = 0x00b1
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x005b
+drive D = 0x05
+FALL
+PINS H L H L H H H H
+expect A = 0x005b
+RISE
+PINS H L H L H H H H
+expect A = 0x005b
+FALL
+PINS H L H L H H H H
+expect A = 0x005b
+RISE
+PINS H L H L H H H H
+expect A = 0x005b
+FALL
+PINS H H H H H H H H
+expect A = 0x005b
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x0061 0x3ffe 0x6000 0x7000 0x00 0x41 0x65 0xe1 0x63 0x01 0x30 0x02 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xb2 0 0 0
+print TAG=WAIT states: sampled on the falling edge of T2 (memory, M1), of the automatic wait state (I/O)
+RISE
+PINS L H H H H H H H
+expect A = 0x0061
+drive D = 0x31
+FALL
+PINS L L H L H H H H
+expect A = 0x0061
+RISE
+PINS L L H L H H H H
+expect A = 0x0061
+FALL
+PINS L L H L H H H H
+expect A = 0x0061
+RISE
+PINS H H H H H L H H
+expect A = 0x00b2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b2
+RISE
+PINS H L H H H L H H
+expect A = 0x00b2
+FALL
+PINS H H H H H L H H
+expect A = 0x00b2
+RISE
+PINS H H H H H H H H
+expect A = 0x0062
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0062
+RISE
+PINS H L H L H H H H
+expect A = 0x0062
+FALL
+PINS H L H L H H H H
+expect A = 0x0062
+RISE
+PINS H L H L H H H H
+expect A = 0x0062
+FALL
+PINS H H H H H H H H
+expect A = 0x0062
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0063
+drive D = 0x40
+FALL
+PINS H L H L H H H H
+expect A = 0x0063
+RISE
+PINS H L H L H H H H
+expect A = 0x0063
+FALL
+PINS H L H L H H H H
+expect A = 0x0063
+RISE
+PINS H L H L H H H H
+expect A = 0x0063
+FALL
+PINS H H H H H H H H
+expect A = 0x0063
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0064
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0064
+RISE
+PINS L L H L H H H H
+expect A = 0x0064
+FALL
+PINS L L H L H H H H
+expect A = 0x0064
+RISE
+PINS H H H H H L H H
+expect A = 0x00b3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b3
+RISE
+PINS H L H H H L H H
+expect A = 0x00b3
+FALL
+PINS H H H H H L H H
+expect A = 0x00b3
+RISE
+PINS H H H H H H H H
+expect A = 0x0065
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0065
+RISE
+PINS H L H L H H H H
+expect A = 0x0065
+FALL
+PINS H L H L H H H H
+expect A = 0x0065
+RISE
+PINS H L H L H H H H
+expect A = 0x0065
+FALL
+PINS H H H H H H H H
+expect A = 0x0065
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0066
+drive D = 0x20
+FALL
+PINS H L H L H H H H
+expect A = 0x0066
+RISE
+PINS H L H L H H H H
+expect A = 0x0066
+FALL
+PINS H L H L H H H H
+expect A = 0x0066
+RISE
+PINS H L H L H H H H
+expect A = 0x0066
+FALL
+PINS H H H H H H H H
+expect A = 0x0066
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0067
+drive D = 0x01
+FALL
+PINS L L H L H H H H
+expect A = 0x0067
+RISE
+PINS L L H L H H H H
+expect A = 0x0067
+FALL
+PINS L L H L H H H H
+expect A = 0x0067
+RISE
+PINS H H H H H L H H
+expect A = 0x00b4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b4
+RISE
+PINS H L H H H L H H
+expect A = 0x00b4
+FALL
+PINS H H H H H L H H
+expect A = 0x00b4
+RISE
+PINS H H H H H H H H
+expect A = 0x0068
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0068
+RISE
+PINS H L H L H H H H
+expect A = 0x0068
+FALL
+PINS H L H L H H H H
+expect A = 0x0068
+RISE
+PINS H L H L H H H H
+expect A = 0x0068
+FALL
+PINS H H H H H H H H
+expect A = 0x0068
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0069
+drive D = 0x30
+FALL
+PINS H L H L H H H H
+expect A = 0x0069
+RISE
+PINS H L H L H H H H
+expect A = 0x0069
+FALL
+PINS H L H L H H H H
+expect A = 0x0069
+RISE
+PINS H L H L H H H H
+expect A = 0x0069
+FALL
+PINS H H H H H H H H
+expect A = 0x0069
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x006a
+drive D = 0x11
+FALL
+PINS L L H L H H H H
+expect A = 0x006a
+RISE
+PINS L L H L H H H H
+expect A = 0x006a
+FALL
+PINS L L H L H H H H
+expect A = 0x006a
+RISE
+PINS H H H H H L H H
+expect A = 0x00b5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b5
+RISE
+PINS H L H H H L H H
+expect A = 0x00b5
+FALL
+PINS H H H H H L H H
+expect A = 0x00b5
+RISE
+PINS H H H H H H H H
+expect A = 0x006b
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x006b
+RISE
+PINS H L H L H H H H
+expect A = 0x006b
+FALL
+PINS H L H L H H H H
+expect A = 0x006b
+RISE
+PINS H L H L H H H H
+expect A = 0x006b
+FALL
+PINS H H H H H H H H
+expect A = 0x006b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x006c
+drive D = 0x50
+FALL
+PINS H L H L H H H H
+expect A = 0x006c
+RISE
+PINS H L H L H H H H
+expect A = 0x006c
+FALL
+PINS H L H L H H H H
+expect A = 0x006c
+RISE
+PINS H L H L H H H H
+expect A = 0x006c
+FALL
+PINS H H H H H H H H
+expect A = 0x006c
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x006d
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x006d
+RISE
+PINS L L H L H H H H
+expect A = 0x006d
+FALL
+PINS L L H L H H H H
+expect A = 0x006d
+RISE
+PINS H H H H H L H H
+expect A = 0x00b6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b6
+RISE
+PINS H L H H H L H H
+expect A = 0x00b6
+FALL
+PINS H H H H H L H H
+expect A = 0x00b6
+RISE
+PINS L H H H H H H H
+expect A = 0x006e
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x006e
+RISE
+PINS L L H L H H H H
+expect A = 0x006e
+FALL
+PINS L L H L H H H H
+expect A = 0x006e
+RISE
+PINS H H H H H L H H
+expect A = 0x00b7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b7
+RISE
+PINS H L H H H L H H
+expect A = 0x00b7
+FALL
+PINS H H H H H L H H
+expect A = 0x00b7
+RISE
+PINS H H H H H H H H
+expect A = 0x006f
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x006f
+RISE
+PINS H L H L H H H H
+expect A = 0x006f
+FALL
+PINS H L H L H H H H
+expect A = 0x006f
+RISE
+PINS H L H L H H H H
+expect A = 0x006f
+FALL
+PINS H H H H H H H H
+expect A = 0x006f
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0070
+drive D = 0x60
+FALL
+PINS H L H L H H H H
+expect A = 0x0070
+RISE
+PINS H L H L H H H H
+expect A = 0x0070
+FALL
+PINS H L H L H H H H
+expect A = 0x0070
+RISE
+PINS H L H L H H H H
+expect A = 0x0070
+FALL
+PINS H H H H H H H H
+expect A = 0x0070
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0071
+drive D = 0xfd
+FALL
+PINS L L H L H H H H
+expect A = 0x0071
+RISE
+PINS L L H L H H H H
+expect A = 0x0071
+FALL
+PINS L L H L H H H H
+expect A = 0x0071
+RISE
+PINS H H H H H L H H
+expect A = 0x00b8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b8
+RISE
+PINS H L H H H L H H
+expect A = 0x00b8
+FALL
+PINS H H H H H L H H
+expect A = 0x00b8
+RISE
+PINS L H H H H H H H
+expect A = 0x0072
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0072
+RISE
+PINS L L H L H H H H
+expect A = 0x0072
+FALL
+PINS L L H L H H H H
+expect A = 0x0072
+RISE
+PINS H H H H H L H H
+expect A = 0x00b9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00b9
+RISE
+PINS H L H H H L H H
+expect A = 0x00b9
+FALL
+PINS H H H H H L H H
+expect A = 0x00b9
+RISE
+PINS H H H H H H H H
+expect A = 0x0073
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0073
+RISE
+PINS H L H L H H H H
+expect A = 0x0073
+FALL
+PINS H L H L H H H H
+expect A = 0x0073
+RISE
+PINS H L H L H H H H
+expect A = 0x0073
+FALL
+PINS H H H H H H H H
+expect A = 0x0073
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0074
+drive D = 0x70
+FALL
+PINS H L H L H H H H
+expect A = 0x0074
+RISE
+PINS H L H L H H H H
+expect A = 0x0074
+FALL
+PINS H L H L H H H H
+expect A = 0x0074
+RISE
+PINS H L H L H H H H
+expect A = 0x0074
+FALL
+PINS H H H H H H H H
+expect A = 0x0074
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0075
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0075
+RISE
+PINS L L H L H H H H
+expect A = 0x0075
+FALL
+PINS L L H L H H H H
+expect A = 0x0075
+RISE
+PINS H H H H H L H H
+expect A = 0x00ba
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ba
+RISE
+PINS H L H H H L H H
+expect A = 0x00ba
+FALL
+PINS H H H H H L H H
+expect A = 0x00ba
+RISE
+PINS H H H H H H H H
+expect A = 0x0076
+drive D = 0x5a
+FALL
+PINS H L H L H H H H
+expect A = 0x0076
+RISE
+PINS H L H L H H H H
+expect A = 0x0076
+FALL
+PINS H L H L H H H H
+expect A = 0x0076
+RISE
+PINS H L H L H H H H
+expect A = 0x0076
+FALL
+PINS H H H H H H H H
+expect A = 0x0076
+clear D
+print TAG=WAIT M1 x1
+RISE
+PINS L H H H H H H H
+expect A = 0x0077
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0077
+RISE
+PINS L L H L H H H H
+expect A = 0x0077
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x0077
+RISE
+PINS L L H L H H H H
+expect A = 0x0077
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x0077
+RISE
+PINS H H H H H L H H
+expect A = 0x00bb
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00bb
+RISE
+PINS H L H H H L H H
+expect A = 0x00bb
+FALL
+PINS H H H H H L H H
+expect A = 0x00bb
+REGS 0x0078 0x4000 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xbc 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0078
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x0078
+RISE
+PINS L L H L H H H H
+expect A = 0x0078
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x0078
+RISE
+PINS L L H L H H H H
+expect A = 0x0078
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x0078
+RISE
+PINS H H H H H L H H
+expect A = 0x00bc
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00bc
+RISE
+PINS H L H H H L H H
+expect A = 0x00bc
+FALL
+PINS H H H H H L H H
+expect A = 0x00bc
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+FALL
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+REGS 0x0079 0x3ffe 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xbd 0 0 0
+print TAG=WAIT M1 x2
+RISE
+PINS L H H H H H H H
+expect A = 0x0079
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0079
+RISE
+PINS L L H L H H H H
+expect A = 0x0079
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x0079
+RISE
+PINS L L H L H H H H
+expect A = 0x0079
+FALL
+PINS L L H L H H H H
+expect A = 0x0079
+RISE
+PINS L L H L H H H H
+expect A = 0x0079
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x0079
+RISE
+PINS H H H H H L H H
+expect A = 0x00bd
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00bd
+RISE
+PINS H L H H H L H H
+expect A = 0x00bd
+FALL
+PINS H H H H H L H H
+expect A = 0x00bd
+REGS 0x007a 0x3ffe 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xbe 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x007a
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x007a
+RISE
+PINS L L H L H H H H
+expect A = 0x007a
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x007a
+RISE
+PINS L L H L H H H H
+expect A = 0x007a
+FALL
+PINS L L H L H H H H
+expect A = 0x007a
+RISE
+PINS L L H L H H H H
+expect A = 0x007a
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x007a
+RISE
+PINS H H H H H L H H
+expect A = 0x00be
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00be
+RISE
+PINS H L H H H L H H
+expect A = 0x00be
+FALL
+PINS H H H H H L H H
+expect A = 0x00be
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffd
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffc
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+REGS 0x007b 0x3ffc 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xbf 0 0 0
+print TAG=WAIT M1 x3
+RISE
+PINS L H H H H H H H
+expect A = 0x007b
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x007b
+RISE
+PINS L L H L H H H H
+expect A = 0x007b
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x007b
+RISE
+PINS L L H L H H H H
+expect A = 0x007b
+FALL
+PINS L L H L H H H H
+expect A = 0x007b
+RISE
+PINS L L H L H H H H
+expect A = 0x007b
+FALL
+PINS L L H L H H H H
+expect A = 0x007b
+RISE
+PINS L L H L H H H H
+expect A = 0x007b
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x007b
+RISE
+PINS H H H H H L H H
+expect A = 0x00bf
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00bf
+RISE
+PINS H L H H H L H H
+expect A = 0x00bf
+FALL
+PINS H H H H H L H H
+expect A = 0x00bf
+REGS 0x007c 0x3ffc 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc0 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x007c
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x007c
+RISE
+PINS L L H L H H H H
+expect A = 0x007c
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x007c
+RISE
+PINS L L H L H H H H
+expect A = 0x007c
+FALL
+PINS L L H L H H H H
+expect A = 0x007c
+RISE
+PINS L L H L H H H H
+expect A = 0x007c
+FALL
+PINS L L H L H H H H
+expect A = 0x007c
+RISE
+PINS L L H L H H H H
+expect A = 0x007c
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x007c
+RISE
+PINS H H H H H L H H
+expect A = 0x00c0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c0
+RISE
+PINS H L H H H L H H
+expect A = 0x00c0
+FALL
+PINS H H H H H L H H
+expect A = 0x00c0
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffb
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffb
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffa
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffa
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffa
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+REGS 0x007d 0x3ffa 0x6000 0x7000 0x5a 0x41 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc1 0 0 0
+print TAG=WAIT memory read x1
+RISE
+PINS L H H H H H H H
+expect A = 0x007d
+drive D = 0x56
+FALL
+PINS L L H L H H H H
+expect A = 0x007d
+RISE
+PINS L L H L H H H H
+expect A = 0x007d
+FALL
+PINS L L H L H H H H
+expect A = 0x007d
+RISE
+PINS H H H H H L H H
+expect A = 0x00c1
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c1
+RISE
+PINS H L H H H L H H
+expect A = 0x00c1
+FALL
+PINS H H H H H L H H
+expect A = 0x00c1
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xad
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+REGS 0x007e 0x3ffa 0x6000 0x7000 0x5a 0x41 0x30 0x00 0xad 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc2 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x007e
+drive D = 0x35
+FALL
+PINS L L H L H H H H
+expect A = 0x007e
+RISE
+PINS L L H L H H H H
+expect A = 0x007e
+FALL
+PINS L L H L H H H H
+expect A = 0x007e
+RISE
+PINS H H H H H L H H
+expect A = 0x00c2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c2
+RISE
+PINS H L H H H L H H
+expect A = 0x00c2
+FALL
+PINS H H H H H L H H
+expect A = 0x00c2
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xad
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xac
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xac
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xac
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xac
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xac
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xac
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+expect D = 0xac
+REGS 0x007f 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xad 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc3 0 0 0
+print TAG=WAIT memory read x2
+RISE
+PINS L H H H H H H H
+expect A = 0x007f
+drive D = 0x56
+FALL
+PINS L L H L H H H H
+expect A = 0x007f
+RISE
+PINS L L H L H H H H
+expect A = 0x007f
+FALL
+PINS L L H L H H H H
+expect A = 0x007f
+RISE
+PINS H H H H H L H H
+expect A = 0x00c3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c3
+RISE
+PINS H L H H H L H H
+expect A = 0x00c3
+FALL
+PINS H H H H H L H H
+expect A = 0x00c3
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xac
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+REGS 0x0080 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xac 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc4 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0080
+drive D = 0x35
+FALL
+PINS L L H L H H H H
+expect A = 0x0080
+RISE
+PINS L L H L H H H H
+expect A = 0x0080
+FALL
+PINS L L H L H H H H
+expect A = 0x0080
+RISE
+PINS H H H H H L H H
+expect A = 0x00c4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c4
+RISE
+PINS H L H H H L H H
+expect A = 0x00c4
+FALL
+PINS H H H H H L H H
+expect A = 0x00c4
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xac
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xab
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xab
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xab
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+expect D = 0xab
+REGS 0x0081 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xac 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc5 0 0 0
+print TAG=WAIT memory read x3
+RISE
+PINS L H H H H H H H
+expect A = 0x0081
+drive D = 0x56
+FALL
+PINS L L H L H H H H
+expect A = 0x0081
+RISE
+PINS L L H L H H H H
+expect A = 0x0081
+FALL
+PINS L L H L H H H H
+expect A = 0x0081
+RISE
+PINS H H H H H L H H
+expect A = 0x00c5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c5
+RISE
+PINS H L H H H L H H
+expect A = 0x00c5
+FALL
+PINS H H H H H L H H
+expect A = 0x00c5
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xab
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+REGS 0x0082 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc6 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0082
+drive D = 0x35
+FALL
+PINS L L H L H H H H
+expect A = 0x0082
+RISE
+PINS L L H L H H H H
+expect A = 0x0082
+FALL
+PINS L L H L H H H H
+expect A = 0x0082
+RISE
+PINS H H H H H L H H
+expect A = 0x00c6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c6
+RISE
+PINS H L H H H L H H
+expect A = 0x00c6
+FALL
+PINS H H H H H L H H
+expect A = 0x00c6
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+drive D = 0xab
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x2000
+RISE
+PINS H L H L H H H H
+expect A = 0x2000
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xaa
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0xaa
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0xaa
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+expect D = 0xaa
+REGS 0x0083 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc7 0 0 0
+print TAG=WAIT memory write x1
+RISE
+PINS L H H H H H H H
+expect A = 0x0083
+drive D = 0x70
+FALL
+PINS L L H L H H H H
+expect A = 0x0083
+RISE
+PINS L L H L H H H H
+expect A = 0x0083
+FALL
+PINS L L H L H H H H
+expect A = 0x0083
+RISE
+PINS H H H H H L H H
+expect A = 0x00c7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c7
+RISE
+PINS H L H H H L H H
+expect A = 0x00c7
+FALL
+PINS H H H H H L H H
+expect A = 0x00c7
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x30
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+expect D = 0x30
+REGS 0x0084 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc8 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0084
+drive D = 0x22
+FALL
+PINS L L H L H H H H
+expect A = 0x0084
+RISE
+PINS L L H L H H H H
+expect A = 0x0084
+FALL
+PINS L L H L H H H H
+expect A = 0x0084
+RISE
+PINS H H H H H L H H
+expect A = 0x00c8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c8
+RISE
+PINS H L H H H L H H
+expect A = 0x00c8
+FALL
+PINS H H H H H L H H
+expect A = 0x00c8
+RISE
+PINS H H H H H H H H
+expect A = 0x0085
+drive D = 0x56
+FALL
+PINS H L H L H H H H
+expect A = 0x0085
+RISE
+PINS H L H L H H H H
+expect A = 0x0085
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x0085
+RISE
+PINS H L H L H H H H
+expect A = 0x0085
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x0085
+RISE
+PINS H L H L H H H H
+expect A = 0x0085
+FALL
+PINS H H H H H H H H
+expect A = 0x0085
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0086
+drive D = 0x34
+FALL
+PINS H L H L H H H H
+expect A = 0x0086
+RISE
+PINS H L H L H H H H
+expect A = 0x0086
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x0086
+RISE
+PINS H L H L H H H H
+expect A = 0x0086
+FALL
+PINS H L H L H H H H
+expect A = 0x0086
+RISE
+PINS H L H L H H H H
+expect A = 0x0086
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x0086
+RISE
+PINS H L H L H H H H
+expect A = 0x0086
+FALL
+PINS H H H H H H H H
+expect A = 0x0086
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3456
+FALL
+PINS H L H H H H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3456
+expect D = 0x00
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H H H H H H H H
+expect A = 0x3457
+FALL
+PINS H L H H H H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H H H H H
+expect A = 0x3457
+expect D = 0x20
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+FALL
+PINS H H H H H H H H
+expect A = 0x3457
+expect D = 0x20
+REGS 0x0087 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xc9 0 0 0
+print TAG=WAIT memory write x2
+RISE
+PINS L H H H H H H H
+expect A = 0x0087
+drive D = 0x70
+FALL
+PINS L L H L H H H H
+expect A = 0x0087
+RISE
+PINS L L H L H H H H
+expect A = 0x0087
+FALL
+PINS L L H L H H H H
+expect A = 0x0087
+RISE
+PINS H H H H H L H H
+expect A = 0x00c9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00c9
+RISE
+PINS H L H H H L H H
+expect A = 0x00c9
+FALL
+PINS H H H H H L H H
+expect A = 0x00c9
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x30
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x2000
+expect D = 0x30
+REGS 0x0088 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xca 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0088
+drive D = 0x22
+FALL
+PINS L L H L H H H H
+expect A = 0x0088
+RISE
+PINS L L H L H H H H
+expect A = 0x0088
+FALL
+PINS L L H L H H H H
+expect A = 0x0088
+RISE
+PINS H H H H H L H H
+expect A = 0x00ca
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ca
+RISE
+PINS H L H H H L H H
+expect A = 0x00ca
+FALL
+PINS H H H H H L H H
+expect A = 0x00ca
+RISE
+PINS H H H H H H H H
+expect A = 0x0089
+drive D = 0x56
+FALL
+PINS H L H L H H H H
+expect A = 0x0089
+RISE
+PINS H L H L H H H H
+expect A = 0x0089
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x0089
+RISE
+PINS H L H L H H H H
+expect A = 0x0089
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x0089
+RISE
+PINS H L H L H H H H
+expect A = 0x0089
+FALL
+PINS H H H H H H H H
+expect A = 0x0089
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x008a
+drive D = 0x34
+FALL
+PINS H L H L H H H H
+expect A = 0x008a
+RISE
+PINS H L H L H H H H
+expect A = 0x008a
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x008a
+RISE
+PINS H L H L H H H H
+expect A = 0x008a
+FALL
+PINS H L H L H H H H
+expect A = 0x008a
+RISE
+PINS H L H L H H H H
+expect A = 0x008a
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x008a
+RISE
+PINS H L H L H H H H
+expect A = 0x008a
+FALL
+PINS H H H H H H H H
+expect A = 0x008a
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3456
+FALL
+PINS H L H H H H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3456
+expect D = 0x00
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3456
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3456
+expect D = 0x00
+RISE
+PINS H H H H H H H H
+expect A = 0x3457
+FALL
+PINS H L H H H H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H H H H H
+expect A = 0x3457
+expect D = 0x20
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+FALL
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3457
+expect D = 0x20
+FALL
+PINS H H H H H H H H
+expect A = 0x3457
+expect D = 0x20
+REGS 0x008b 0x3ffa 0x6000 0x7000 0x5a 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xcb 0 0 0
+print TAG=WAIT I/O read x1 (on top of the automatic wait state)
+RISE
+PINS L H H H H H H H
+expect A = 0x008b
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x008b
+RISE
+PINS L L H L H H H H
+expect A = 0x008b
+FALL
+PINS L L H L H H H H
+expect A = 0x008b
+RISE
+PINS H H H H H L H H
+expect A = 0x00cb
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00cb
+RISE
+PINS H L H H H L H H
+expect A = 0x00cb
+FALL
+PINS H H H H H L H H
+expect A = 0x00cb
+RISE
+PINS H H H H H H H H
+expect A = 0x008c
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x008c
+RISE
+PINS H L H L H H H H
+expect A = 0x008c
+FALL
+PINS H L H L H H H H
+expect A = 0x008c
+RISE
+PINS H L H L H H H H
+expect A = 0x008c
+FALL
+PINS H H H H H H H H
+expect A = 0x008c
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x5a22
+FALL
+PINS H H H H H H H H
+expect A = 0x5a22
+RISE
+PINS H H L L H H H H
+expect A = 0x5a22
+drive D = 0x0e
+FALL
+PINS H H L L H H H H
+expect A = 0x5a22
+RISE
+PINS H H L L H H H H
+expect A = 0x5a22
+drive NotWAIT = L
+FALL
+PINS H H L L H H H H
+expect A = 0x5a22
+RISE
+PINS H H L L H H H H
+expect A = 0x5a22
+drive NotWAIT = H
+FALL
+PINS H H L L H H H H
+expect A = 0x5a22
+RISE
+PINS H H L L H H H H
+expect A = 0x5a22
+FALL
+PINS H H H H H H H H
+expect A = 0x5a22
+clear D
+REGS 0x008d 0x3ffa 0x6000 0x7000 0x0e 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xcc 0 0 0
+print TAG=WAIT I/O write x1
+RISE
+PINS L H H H H H H H
+expect A = 0x008d
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x008d
+RISE
+PINS L L H L H H H H
+expect A = 0x008d
+FALL
+PINS L L H L H H H H
+expect A = 0x008d
+RISE
+PINS H H H H H L H H
+expect A = 0x00cc
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00cc
+RISE
+PINS H L H H H L H H
+expect A = 0x00cc
+FALL
+PINS H H H H H L H H
+expect A = 0x00cc
+RISE
+PINS H H H H H H H H
+expect A = 0x008e
+drive D = 0x23
+FALL
+PINS H L H L H H H H
+expect A = 0x008e
+RISE
+PINS H L H L H H H H
+expect A = 0x008e
+FALL
+PINS H L H L H H H H
+expect A = 0x008e
+RISE
+PINS H L H L H H H H
+expect A = 0x008e
+FALL
+PINS H H H H H H H H
+expect A = 0x008e
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0e23
+FALL
+PINS H H H H H H H H
+expect A = 0x0e23
+expect D = 0x0e
+RISE
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+FALL
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+RISE
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+drive NotWAIT = L
+FALL
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+RISE
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+drive NotWAIT = H
+FALL
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+RISE
+PINS H H L H L H H H
+expect A = 0x0e23
+expect D = 0x0e
+FALL
+PINS H H H H H H H H
+expect A = 0x0e23
+expect D = 0x0e
+REGS 0x008f 0x3ffa 0x6000 0x7000 0x0e 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xcd 0 0 0
+print TAG=WAIT I/O read x2 (on top of the automatic wait state)
+RISE
+PINS L H H H H H H H
+expect A = 0x008f
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x008f
+RISE
+PINS L L H L H H H H
+expect A = 0x008f
+FALL
+PINS L L H L H H H H
+expect A = 0x008f
+RISE
+PINS H H H H H L H H
+expect A = 0x00cd
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00cd
+RISE
+PINS H L H H H L H H
+expect A = 0x00cd
+FALL
+PINS H H H H H L H H
+expect A = 0x00cd
+RISE
+PINS H H H H H H H H
+expect A = 0x0090
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x0090
+RISE
+PINS H L H L H H H H
+expect A = 0x0090
+FALL
+PINS H L H L H H H H
+expect A = 0x0090
+RISE
+PINS H L H L H H H H
+expect A = 0x0090
+FALL
+PINS H H H H H H H H
+expect A = 0x0090
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0e22
+FALL
+PINS H H H H H H H H
+expect A = 0x0e22
+RISE
+PINS H H L L H H H H
+expect A = 0x0e22
+drive D = 0x90
+FALL
+PINS H H L L H H H H
+expect A = 0x0e22
+RISE
+PINS H H L L H H H H
+expect A = 0x0e22
+drive NotWAIT = L
+FALL
+PINS H H L L H H H H
+expect A = 0x0e22
+RISE
+PINS H H L L H H H H
+expect A = 0x0e22
+FALL
+PINS H H L L H H H H
+expect A = 0x0e22
+RISE
+PINS H H L L H H H H
+expect A = 0x0e22
+drive NotWAIT = H
+FALL
+PINS H H L L H H H H
+expect A = 0x0e22
+RISE
+PINS H H L L H H H H
+expect A = 0x0e22
+FALL
+PINS H H H H H H H H
+expect A = 0x0e22
+clear D
+REGS 0x0091 0x3ffa 0x6000 0x7000 0x90 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xce 0 0 0
+print TAG=WAIT I/O write x2
+RISE
+PINS L H H H H H H H
+expect A = 0x0091
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x0091
+RISE
+PINS L L H L H H H H
+expect A = 0x0091
+FALL
+PINS L L H L H H H H
+expect A = 0x0091
+RISE
+PINS H H H H H L H H
+expect A = 0x00ce
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ce
+RISE
+PINS H L H H H L H H
+expect A = 0x00ce
+FALL
+PINS H H H H H L H H
+expect A = 0x00ce
+RISE
+PINS H H H H H H H H
+expect A = 0x0092
+drive D = 0x23
+FALL
+PINS H L H L H H H H
+expect A = 0x0092
+RISE
+PINS H L H L H H H H
+expect A = 0x0092
+FALL
+PINS H L H L H H H H
+expect A = 0x0092
+RISE
+PINS H L H L H H H H
+expect A = 0x0092
+FALL
+PINS H H H H H H H H
+expect A = 0x0092
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x9023
+FALL
+PINS H H H H H H H H
+expect A = 0x9023
+expect D = 0x90
+RISE
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+FALL
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+RISE
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+drive NotWAIT = L
+FALL
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+RISE
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+FALL
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+RISE
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+drive NotWAIT = H
+FALL
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+RISE
+PINS H H L H L H H H
+expect A = 0x9023
+expect D = 0x90
+FALL
+PINS H H H H H H H H
+expect A = 0x9023
+expect D = 0x90
+REGS 0x0093 0x3ffa 0x6000 0x7000 0x90 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xcf 0 0 0
+print TAG=WAIT I/O read x3 (on top of the automatic wait state)
+RISE
+PINS L H H H H H H H
+expect A = 0x0093
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x0093
+RISE
+PINS L L H L H H H H
+expect A = 0x0093
+FALL
+PINS L L H L H H H H
+expect A = 0x0093
+RISE
+PINS H H H H H L H H
+expect A = 0x00cf
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00cf
+RISE
+PINS H L H H H L H H
+expect A = 0x00cf
+FALL
+PINS H H H H H L H H
+expect A = 0x00cf
+RISE
+PINS H H H H H H H H
+expect A = 0x0094
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x0094
+RISE
+PINS H L H L H H H H
+expect A = 0x0094
+FALL
+PINS H L H L H H H H
+expect A = 0x0094
+RISE
+PINS H L H L H H H H
+expect A = 0x0094
+FALL
+PINS H H H H H H H H
+expect A = 0x0094
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x9022
+FALL
+PINS H H H H H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+drive D = 0x37
+FALL
+PINS H H L L H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+drive NotWAIT = L
+FALL
+PINS H H L L H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+FALL
+PINS H H L L H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+FALL
+PINS H H L L H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+drive NotWAIT = H
+FALL
+PINS H H L L H H H H
+expect A = 0x9022
+RISE
+PINS H H L L H H H H
+expect A = 0x9022
+FALL
+PINS H H H H H H H H
+expect A = 0x9022
+clear D
+REGS 0x0095 0x3ffa 0x6000 0x7000 0x37 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd0 0 0 0
+print TAG=WAIT I/O write x3
+RISE
+PINS L H H H H H H H
+expect A = 0x0095
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x0095
+RISE
+PINS L L H L H H H H
+expect A = 0x0095
+FALL
+PINS L L H L H H H H
+expect A = 0x0095
+RISE
+PINS H H H H H L H H
+expect A = 0x00d0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d0
+RISE
+PINS H L H H H L H H
+expect A = 0x00d0
+FALL
+PINS H H H H H L H H
+expect A = 0x00d0
+RISE
+PINS H H H H H H H H
+expect A = 0x0096
+drive D = 0x23
+FALL
+PINS H L H L H H H H
+expect A = 0x0096
+RISE
+PINS H L H L H H H H
+expect A = 0x0096
+FALL
+PINS H L H L H H H H
+expect A = 0x0096
+RISE
+PINS H L H L H H H H
+expect A = 0x0096
+FALL
+PINS H H H H H H H H
+expect A = 0x0096
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3723
+FALL
+PINS H H H H H H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+FALL
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+drive NotWAIT = L
+FALL
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+FALL
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+FALL
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+drive NotWAIT = H
+FALL
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+RISE
+PINS H H L H L H H H
+expect A = 0x3723
+expect D = 0x37
+FALL
+PINS H H H H H H H H
+expect A = 0x3723
+expect D = 0x37
+REGS 0x0097 0x3ffa 0x6000 0x7000 0x37 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd1 0 0 0
+print TAG=WAIT every cycle of one instruction
+RISE
+PINS L H H H H H H H
+expect A = 0x0097
+drive D = 0x3a
+FALL
+PINS L L H L H H H H
+expect A = 0x0097
+RISE
+PINS L L H L H H H H
+expect A = 0x0097
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x0097
+RISE
+PINS L L H L H H H H
+expect A = 0x0097
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x0097
+RISE
+PINS H H H H H L H H
+expect A = 0x00d1
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d1
+RISE
+PINS H L H H H L H H
+expect A = 0x00d1
+FALL
+PINS H H H H H L H H
+expect A = 0x00d1
+RISE
+PINS H H H H H H H H
+expect A = 0x0098
+drive D = 0x57
+FALL
+PINS H L H L H H H H
+expect A = 0x0098
+RISE
+PINS H L H L H H H H
+expect A = 0x0098
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x0098
+RISE
+PINS H L H L H H H H
+expect A = 0x0098
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x0098
+RISE
+PINS H L H L H H H H
+expect A = 0x0098
+FALL
+PINS H H H H H H H H
+expect A = 0x0098
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0099
+drive D = 0x13
+FALL
+PINS H L H L H H H H
+expect A = 0x0099
+RISE
+PINS H L H L H H H H
+expect A = 0x0099
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x0099
+RISE
+PINS H L H L H H H H
+expect A = 0x0099
+FALL
+PINS H L H L H H H H
+expect A = 0x0099
+RISE
+PINS H L H L H H H H
+expect A = 0x0099
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x0099
+RISE
+PINS H L H L H H H H
+expect A = 0x0099
+FALL
+PINS H H H H H H H H
+expect A = 0x0099
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x1357
+drive D = 0x39
+FALL
+PINS H L H L H H H H
+expect A = 0x1357
+RISE
+PINS H L H L H H H H
+expect A = 0x1357
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x1357
+RISE
+PINS H L H L H H H H
+expect A = 0x1357
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x1357
+RISE
+PINS H L H L H H H H
+expect A = 0x1357
+FALL
+PINS H H H H H H H H
+expect A = 0x1357
+clear D
+REGS 0x009a 0x3ffa 0x6000 0x7000 0x39 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd2 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x009a
+drive D = 0xcd
+FALL
+PINS L L H L H H H H
+expect A = 0x009a
+RISE
+PINS L L H L H H H H
+expect A = 0x009a
+drive NotWAIT = L
+FALL
+PINS L L H L H H H H
+expect A = 0x009a
+RISE
+PINS L L H L H H H H
+expect A = 0x009a
+FALL
+PINS L L H L H H H H
+expect A = 0x009a
+RISE
+PINS L L H L H H H H
+expect A = 0x009a
+drive NotWAIT = H
+FALL
+PINS L L H L H H H H
+expect A = 0x009a
+RISE
+PINS H H H H H L H H
+expect A = 0x00d2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d2
+RISE
+PINS H L H H H L H H
+expect A = 0x00d2
+FALL
+PINS H H H H H L H H
+expect A = 0x00d2
+RISE
+PINS H H H H H H H H
+expect A = 0x009b
+drive D = 0x21
+FALL
+PINS H L H L H H H H
+expect A = 0x009b
+RISE
+PINS H L H L H H H H
+expect A = 0x009b
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x009b
+RISE
+PINS H L H L H H H H
+expect A = 0x009b
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x009b
+RISE
+PINS H L H L H H H H
+expect A = 0x009b
+FALL
+PINS H H H H H H H H
+expect A = 0x009b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x009c
+drive D = 0x43
+FALL
+PINS H L H L H H H H
+expect A = 0x009c
+RISE
+PINS H L H L H H H H
+expect A = 0x009c
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x009c
+RISE
+PINS H L H L H H H H
+expect A = 0x009c
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x009c
+RISE
+PINS H L H L H H H H
+expect A = 0x009c
+FALL
+PINS H H H H H H H H
+expect A = 0x009c
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3ff9
+FALL
+PINS H L H H H H H H
+expect A = 0x3ff9
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ff9
+expect D = 0x00
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3ff9
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ff9
+expect D = 0x00
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3ff9
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ff9
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ff9
+expect D = 0x00
+RISE
+PINS H H H H H H H H
+expect A = 0x3ff8
+FALL
+PINS H L H H H H H H
+expect A = 0x3ff8
+expect D = 0x9d
+RISE
+PINS H L H H H H H H
+expect A = 0x3ff8
+expect D = 0x9d
+drive NotWAIT = L
+FALL
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+RISE
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+FALL
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+RISE
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+drive NotWAIT = H
+FALL
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+RISE
+PINS H L H H L H H H
+expect A = 0x3ff8
+expect D = 0x9d
+FALL
+PINS H H H H H H H H
+expect A = 0x3ff8
+expect D = 0x9d
+REGS 0x4321 0x3ff8 0x6000 0x7000 0x39 0x83 0x30 0x00 0xab 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd3 0 0 0
+print TAG=WAIT low through internal T-states is ignored
+RISE
+PINS L H H H H H H H
+expect A = 0x4321
+drive D = 0x09
+FALL
+PINS L L H L H H H H
+expect A = 0x4321
+RISE
+PINS L L H L H H H H
+expect A = 0x4321
+FALL
+PINS L L H L H H H H
+expect A = 0x4321
+RISE
+PINS H H H H H L H H
+expect A = 0x00d3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d3
+RISE
+PINS H L H H H L H H
+expect A = 0x00d3
+FALL
+PINS H H H H H L H H
+expect A = 0x00d3
+drive NotWAIT = L
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+drive NotWAIT = H
+FALL
+PINS H H H H H H H H
+REGS 0x4322 0x3ff8 0x6000 0x7000 0x39 0x80 0x30 0x00 0xab 0x00 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd4 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4322
+drive D = 0x18
+FALL
+PINS L L H L H H H H
+expect A = 0x4322
+RISE
+PINS L L H L H H H H
+expect A = 0x4322
+FALL
+PINS L L H L H H H H
+expect A = 0x4322
+RISE
+PINS H H H H H L H H
+expect A = 0x00d4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d4
+RISE
+PINS H L H H H L H H
+expect A = 0x00d4
+FALL
+PINS H H H H H L H H
+expect A = 0x00d4
+RISE
+PINS H H H H H H H H
+expect A = 0x4323
+drive D = 0x02
+FALL
+PINS H L H L H H H H
+expect A = 0x4323
+RISE
+PINS H L H L H H H H
+expect A = 0x4323
+FALL
+PINS H L H L H H H H
+expect A = 0x4323
+RISE
+PINS H L H L H H H H
+expect A = 0x4323
+FALL
+PINS H H H H H H H H
+expect A = 0x4323
+clear D
+drive NotWAIT = L
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+drive NotWAIT = H
+FALL
+PINS H H H H H H H H
+REGS 0x4326 0x3ff8 0x6000 0x7000 0x39 0x80 0x30 0x00 0xab 0x00 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd5 0 0 0
+print TAG=WAIT low outside the sampling edge is ignored
+RISE
+PINS L H H H H H H H
+expect A = 0x4326
+drive D = 0x5e
+FALL
+PINS L L H L H H H H
+expect A = 0x4326
+RISE
+PINS L L H L H H H H
+expect A = 0x4326
+FALL
+PINS L L H L H H H H
+expect A = 0x4326
+RISE
+PINS H H H H H L H H
+expect A = 0x00d5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d5
+RISE
+PINS H L H H H L H H
+expect A = 0x00d5
+FALL
+PINS H H H H H L H H
+expect A = 0x00d5
+drive NotWAIT = L
+RISE
+PINS H H H H H H H H
+expect A = 0x5000
+drive D = 0x69
+FALL
+PINS H L H L H H H H
+expect A = 0x5000
+drive NotWAIT = H
+RISE
+PINS H L H L H H H H
+expect A = 0x5000
+FALL
+PINS H L H L H H H H
+expect A = 0x5000
+drive NotWAIT = L
+RISE
+PINS H L H L H H H H
+expect A = 0x5000
+FALL
+PINS H H H H H H H H
+expect A = 0x5000
+clear D
+REGS 0x4327 0x3ff8 0x6000 0x7000 0x39 0x80 0x30 0x00 0xab 0x69 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd6 0 0 0
+drive NotWAIT = H
+drive NotWAIT = L
+RISE
+PINS L H H H H H H H
+expect A = 0x4327
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4327
+drive NotWAIT = H
+RISE
+PINS L L H L H H H H
+expect A = 0x4327
+FALL
+PINS L L H L H H H H
+expect A = 0x4327
+drive NotWAIT = L
+RISE
+PINS H H H H H L H H
+expect A = 0x00d6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d6
+drive NotWAIT = H
+RISE
+PINS H L H H H L H H
+expect A = 0x00d6
+FALL
+PINS H H H H H L H H
+expect A = 0x00d6
+REGS 0x4328 0x3ff8 0x6000 0x7000 0x39 0x80 0x30 0x00 0xab 0x69 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd7 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4328
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x4328
+RISE
+PINS L L H L H H H H
+expect A = 0x4328
+FALL
+PINS L L H L H H H H
+expect A = 0x4328
+RISE
+PINS H H H H H L H H
+expect A = 0x00d7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d7
+RISE
+PINS H L H H H L H H
+expect A = 0x00d7
+FALL
+PINS H H H H H L H H
+expect A = 0x00d7
+RISE
+PINS H H H H H H H H
+expect A = 0x4329
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x4329
+RISE
+PINS H L H L H H H H
+expect A = 0x4329
+FALL
+PINS H L H L H H H H
+expect A = 0x4329
+RISE
+PINS H L H L H H H H
+expect A = 0x4329
+FALL
+PINS H H H H H H H H
+expect A = 0x4329
+clear D
+drive NotWAIT = L
+RISE
+PINS H H H H H H H H
+expect A = 0x3922
+FALL
+PINS H H H H H H H H
+expect A = 0x3922
+drive NotWAIT = H
+RISE
+PINS H H L L H H H H
+expect A = 0x3922
+drive D = 0x63
+FALL
+PINS H H L L H H H H
+expect A = 0x3922
+RISE
+PINS H H L L H H H H
+expect A = 0x3922
+FALL
+PINS H H L L H H H H
+expect A = 0x3922
+RISE
+PINS H H L L H H H H
+expect A = 0x3922
+FALL
+PINS H H H H H H H H
+expect A = 0x3922
+clear D
+REGS 0x432a 0x3ff8 0x6000 0x7000 0x63 0x80 0x30 0x00 0xab 0x69 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd8 0 0 0
+REGS 0x432a 0x3ff8 0x6000 0x7000 0x63 0x80 0x30 0x00 0xab 0x69 0x50 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xd8 0 0 0
+print TAG=BUSREQ: sampled on the rising edge of the last T-state of any machine cycle; the bus floats on the next rising edge
+RISE
+PINS L H H H H H H H
+expect A = 0x432a
+drive D = 0x31
+FALL
+PINS L L H L H H H H
+expect A = 0x432a
+RISE
+PINS L L H L H H H H
+expect A = 0x432a
+FALL
+PINS L L H L H H H H
+expect A = 0x432a
+RISE
+PINS H H H H H L H H
+expect A = 0x00d8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d8
+RISE
+PINS H L H H H L H H
+expect A = 0x00d8
+FALL
+PINS H H H H H L H H
+expect A = 0x00d8
+RISE
+PINS H H H H H H H H
+expect A = 0x432b
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x432b
+RISE
+PINS H L H L H H H H
+expect A = 0x432b
+FALL
+PINS H L H L H H H H
+expect A = 0x432b
+RISE
+PINS H L H L H H H H
+expect A = 0x432b
+FALL
+PINS H H H H H H H H
+expect A = 0x432b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x432c
+drive D = 0x40
+FALL
+PINS H L H L H H H H
+expect A = 0x432c
+RISE
+PINS H L H L H H H H
+expect A = 0x432c
+FALL
+PINS H L H L H H H H
+expect A = 0x432c
+RISE
+PINS H L H L H H H H
+expect A = 0x432c
+FALL
+PINS H H H H H H H H
+expect A = 0x432c
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x432d
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x432d
+RISE
+PINS L L H L H H H H
+expect A = 0x432d
+FALL
+PINS L L H L H H H H
+expect A = 0x432d
+RISE
+PINS H H H H H L H H
+expect A = 0x00d9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00d9
+RISE
+PINS H L H H H L H H
+expect A = 0x00d9
+FALL
+PINS H H H H H L H H
+expect A = 0x00d9
+RISE
+PINS H H H H H H H H
+expect A = 0x432e
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x432e
+RISE
+PINS H L H L H H H H
+expect A = 0x432e
+FALL
+PINS H L H L H H H H
+expect A = 0x432e
+RISE
+PINS H L H L H H H H
+expect A = 0x432e
+FALL
+PINS H H H H H H H H
+expect A = 0x432e
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x432f
+drive D = 0x20
+FALL
+PINS H L H L H H H H
+expect A = 0x432f
+RISE
+PINS H L H L H H H H
+expect A = 0x432f
+FALL
+PINS H L H L H H H H
+expect A = 0x432f
+RISE
+PINS H L H L H H H H
+expect A = 0x432f
+FALL
+PINS H H H H H H H H
+expect A = 0x432f
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x4330
+drive D = 0x01
+FALL
+PINS L L H L H H H H
+expect A = 0x4330
+RISE
+PINS L L H L H H H H
+expect A = 0x4330
+FALL
+PINS L L H L H H H H
+expect A = 0x4330
+RISE
+PINS H H H H H L H H
+expect A = 0x00da
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00da
+RISE
+PINS H L H H H L H H
+expect A = 0x00da
+FALL
+PINS H H H H H L H H
+expect A = 0x00da
+RISE
+PINS H H H H H H H H
+expect A = 0x4331
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x4331
+RISE
+PINS H L H L H H H H
+expect A = 0x4331
+FALL
+PINS H L H L H H H H
+expect A = 0x4331
+RISE
+PINS H L H L H H H H
+expect A = 0x4331
+FALL
+PINS H H H H H H H H
+expect A = 0x4331
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x4332
+drive D = 0x30
+FALL
+PINS H L H L H H H H
+expect A = 0x4332
+RISE
+PINS H L H L H H H H
+expect A = 0x4332
+FALL
+PINS H L H L H H H H
+expect A = 0x4332
+RISE
+PINS H L H L H H H H
+expect A = 0x4332
+FALL
+PINS H H H H H H H H
+expect A = 0x4332
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x4333
+drive D = 0x11
+FALL
+PINS L L H L H H H H
+expect A = 0x4333
+RISE
+PINS L L H L H H H H
+expect A = 0x4333
+FALL
+PINS L L H L H H H H
+expect A = 0x4333
+RISE
+PINS H H H H H L H H
+expect A = 0x00db
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00db
+RISE
+PINS H L H H H L H H
+expect A = 0x00db
+FALL
+PINS H H H H H L H H
+expect A = 0x00db
+RISE
+PINS H H H H H H H H
+expect A = 0x4334
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x4334
+RISE
+PINS H L H L H H H H
+expect A = 0x4334
+FALL
+PINS H L H L H H H H
+expect A = 0x4334
+RISE
+PINS H L H L H H H H
+expect A = 0x4334
+FALL
+PINS H H H H H H H H
+expect A = 0x4334
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x4335
+drive D = 0x50
+FALL
+PINS H L H L H H H H
+expect A = 0x4335
+RISE
+PINS H L H L H H H H
+expect A = 0x4335
+FALL
+PINS H L H L H H H H
+expect A = 0x4335
+RISE
+PINS H L H L H H H H
+expect A = 0x4335
+FALL
+PINS H H H H H H H H
+expect A = 0x4335
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x4336
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x4336
+RISE
+PINS L L H L H H H H
+expect A = 0x4336
+FALL
+PINS L L H L H H H H
+expect A = 0x4336
+RISE
+PINS H H H H H L H H
+expect A = 0x00dc
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00dc
+RISE
+PINS H L H H H L H H
+expect A = 0x00dc
+FALL
+PINS H H H H H L H H
+expect A = 0x00dc
+RISE
+PINS L H H H H H H H
+expect A = 0x4337
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x4337
+RISE
+PINS L L H L H H H H
+expect A = 0x4337
+FALL
+PINS L L H L H H H H
+expect A = 0x4337
+RISE
+PINS H H H H H L H H
+expect A = 0x00dd
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00dd
+RISE
+PINS H L H H H L H H
+expect A = 0x00dd
+FALL
+PINS H H H H H L H H
+expect A = 0x00dd
+RISE
+PINS H H H H H H H H
+expect A = 0x4338
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x4338
+RISE
+PINS H L H L H H H H
+expect A = 0x4338
+FALL
+PINS H L H L H H H H
+expect A = 0x4338
+RISE
+PINS H L H L H H H H
+expect A = 0x4338
+FALL
+PINS H H H H H H H H
+expect A = 0x4338
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x4339
+drive D = 0x60
+FALL
+PINS H L H L H H H H
+expect A = 0x4339
+RISE
+PINS H L H L H H H H
+expect A = 0x4339
+FALL
+PINS H L H L H H H H
+expect A = 0x4339
+RISE
+PINS H L H L H H H H
+expect A = 0x4339
+FALL
+PINS H H H H H H H H
+expect A = 0x4339
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x433a
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x433a
+RISE
+PINS L L H L H H H H
+expect A = 0x433a
+FALL
+PINS L L H L H H H H
+expect A = 0x433a
+RISE
+PINS H H H H H L H H
+expect A = 0x00de
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00de
+RISE
+PINS H L H H H L H H
+expect A = 0x00de
+FALL
+PINS H H H H H L H H
+expect A = 0x00de
+RISE
+PINS H H H H H H H H
+expect A = 0x433b
+drive D = 0x5a
+FALL
+PINS H L H L H H H H
+expect A = 0x433b
+RISE
+PINS H L H L H H H H
+expect A = 0x433b
+FALL
+PINS H L H L H H H H
+expect A = 0x433b
+RISE
+PINS H L H L H H H H
+expect A = 0x433b
+FALL
+PINS H H H H H H H H
+expect A = 0x433b
+clear D
+print TAG=BUSREQ after NOP, 2 Tx
+RISE
+PINS L H H H H H H H
+expect A = 0x433c
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x433c
+RISE
+PINS L L H L H H H H
+expect A = 0x433c
+FALL
+PINS L L H L H H H H
+expect A = 0x433c
+RISE
+PINS H H H H H L H H
+expect A = 0x00df
+clear D
+drive NotBUSREQ = L
+FALL
+PINS H L H H H L H H
+expect A = 0x00df
+RISE
+PINS H L H H H L H H
+expect A = 0x00df
+FALL
+PINS H H H H H L H H
+expect A = 0x00df
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x433d 0x4000 0x6000 0x7000 0x5a 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe0 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x433d
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x433d
+RISE
+PINS L L H L H H H H
+expect A = 0x433d
+FALL
+PINS L L H L H H H H
+expect A = 0x433d
+RISE
+PINS H H H H H L H H
+expect A = 0x00e0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e0
+RISE
+PINS H L H H H L H H
+expect A = 0x00e0
+FALL
+PINS H H H H H L H H
+expect A = 0x00e0
+print TAG=BUSREQ after NOP, 3 Tx (Figure 8)
+RISE
+PINS L H H H H H H H
+expect A = 0x433e
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x433e
+RISE
+PINS L L H L H H H H
+expect A = 0x433e
+FALL
+PINS L L H L H H H H
+expect A = 0x433e
+RISE
+PINS H H H H H L H H
+expect A = 0x00e1
+clear D
+drive NotBUSREQ = L
+FALL
+PINS H L H H H L H H
+expect A = 0x00e1
+RISE
+PINS H L H H H L H H
+expect A = 0x00e1
+FALL
+PINS H H H H H L H H
+expect A = 0x00e1
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x433f 0x4000 0x6000 0x7000 0x5a 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe2 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x433f
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x433f
+RISE
+PINS L L H L H H H H
+expect A = 0x433f
+FALL
+PINS L L H L H H H H
+expect A = 0x433f
+RISE
+PINS H H H H H L H H
+expect A = 0x00e2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e2
+RISE
+PINS H L H H H L H H
+expect A = 0x00e2
+FALL
+PINS H H H H H L H H
+expect A = 0x00e2
+print TAG=BUSREQ held for 6 Tx
+drive NotBUSREQ = L
+RISE
+PINS L H H H H H H H
+expect A = 0x4340
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4340
+RISE
+PINS L L H L H H H H
+expect A = 0x4340
+FALL
+PINS L L H L H H H H
+expect A = 0x4340
+RISE
+PINS H H H H H L H H
+expect A = 0x00e3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e3
+RISE
+PINS H L H H H L H H
+expect A = 0x00e3
+FALL
+PINS H H H H H L H H
+expect A = 0x00e3
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x4341 0x4000 0x6000 0x7000 0x5a 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe4 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4341
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4341
+RISE
+PINS L L H L H H H H
+expect A = 0x4341
+FALL
+PINS L L H L H H H H
+expect A = 0x4341
+RISE
+PINS H H H H H L H H
+expect A = 0x00e4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e4
+RISE
+PINS H L H H H L H H
+expect A = 0x00e4
+FALL
+PINS H H H H H L H H
+expect A = 0x00e4
+print TAG=BUSREQ asserted after the last T-state's rising edge waits for the next machine cycle
+RISE
+PINS L H H H H H H H
+expect A = 0x4342
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4342
+RISE
+PINS L L H L H H H H
+expect A = 0x4342
+FALL
+PINS L L H L H H H H
+expect A = 0x4342
+RISE
+PINS H H H H H L H H
+expect A = 0x00e5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e5
+RISE
+PINS H L H H H L H H
+expect A = 0x00e5
+drive NotBUSREQ = L
+FALL
+PINS H H H H H L H H
+expect A = 0x00e5
+REGS 0x4343 0x4000 0x6000 0x7000 0x5a 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe6 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4343
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4343
+RISE
+PINS L L H L H H H H
+expect A = 0x4343
+FALL
+PINS L L H L H H H H
+expect A = 0x4343
+RISE
+PINS H H H H H L H H
+expect A = 0x00e6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e6
+RISE
+PINS H L H H H L H H
+expect A = 0x00e6
+FALL
+PINS H H H H H L H H
+expect A = 0x00e6
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x4344 0x4000 0x6000 0x7000 0x5a 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe7 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4344
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x4344
+RISE
+PINS L L H L H H H H
+expect A = 0x4344
+FALL
+PINS L L H L H H H H
+expect A = 0x4344
+RISE
+PINS H H H H H L H H
+expect A = 0x00e7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e7
+RISE
+PINS H L H H H L H H
+expect A = 0x00e7
+FALL
+PINS H H H H H L H H
+expect A = 0x00e7
+print TAG=BUSREQ between machine cycles of an instruction
+RISE
+PINS L H H H H H H H
+expect A = 0x4345
+drive D = 0x3a
+FALL
+PINS L L H L H H H H
+expect A = 0x4345
+RISE
+PINS L L H L H H H H
+expect A = 0x4345
+FALL
+PINS L L H L H H H H
+expect A = 0x4345
+RISE
+PINS H H H H H L H H
+expect A = 0x00e8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e8
+RISE
+PINS H L H H H L H H
+expect A = 0x00e8
+FALL
+PINS H H H H H L H H
+expect A = 0x00e8
+RISE
+PINS H H H H H H H H
+expect A = 0x4346
+drive D = 0x57
+FALL
+PINS H L H L H H H H
+expect A = 0x4346
+RISE
+PINS H L H L H H H H
+expect A = 0x4346
+FALL
+PINS H L H L H H H H
+expect A = 0x4346
+drive NotBUSREQ = L
+RISE
+PINS H L H L H H H H
+expect A = 0x4346
+FALL
+PINS H H H H H H H H
+expect A = 0x4346
+clear D
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x4347
+drive D = 0x13
+FALL
+PINS H L H L H H H H
+expect A = 0x4347
+RISE
+PINS H L H L H H H H
+expect A = 0x4347
+FALL
+PINS H L H L H H H H
+expect A = 0x4347
+RISE
+PINS H L H L H H H H
+expect A = 0x4347
+FALL
+PINS H H H H H H H H
+expect A = 0x4347
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x1357
+drive D = 0x39
+FALL
+PINS H L H L H H H H
+expect A = 0x1357
+RISE
+PINS H L H L H H H H
+expect A = 0x1357
+FALL
+PINS H L H L H H H H
+expect A = 0x1357
+RISE
+PINS H L H L H H H H
+expect A = 0x1357
+FALL
+PINS H H H H H H H H
+expect A = 0x1357
+clear D
+REGS 0x4348 0x4000 0x6000 0x7000 0x39 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xe9 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x4348
+drive D = 0x3a
+FALL
+PINS L L H L H H H H
+expect A = 0x4348
+RISE
+PINS L L H L H H H H
+expect A = 0x4348
+FALL
+PINS L L H L H H H H
+expect A = 0x4348
+RISE
+PINS H H H H H L H H
+expect A = 0x00e9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00e9
+drive NotBUSREQ = L
+RISE
+PINS H L H H H L H H
+expect A = 0x00e9
+FALL
+PINS H H H H H L H H
+expect A = 0x00e9
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x4349
+drive D = 0x58
+FALL
+PINS H L H L H H H H
+expect A = 0x4349
+RISE
+PINS H L H L H H H H
+expect A = 0x4349
+FALL
+PINS H L H L H H H H
+expect A = 0x4349
+RISE
+PINS H L H L H H H H
+expect A = 0x4349
+FALL
+PINS H H H H H H H H
+expect A = 0x4349
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x434a
+drive D = 0x13
+FALL
+PINS H L H L H H H H
+expect A = 0x434a
+RISE
+PINS H L H L H H H H
+expect A = 0x434a
+FALL
+PINS H L H L H H H H
+expect A = 0x434a
+RISE
+PINS H L H L H H H H
+expect A = 0x434a
+FALL
+PINS H H H H H H H H
+expect A = 0x434a
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x1358
+drive D = 0x57
+FALL
+PINS H L H L H H H H
+expect A = 0x1358
+RISE
+PINS H L H L H H H H
+expect A = 0x1358
+FALL
+PINS H L H L H H H H
+expect A = 0x1358
+RISE
+PINS H L H L H H H H
+expect A = 0x1358
+FALL
+PINS H H H H H H H H
+expect A = 0x1358
+clear D
+REGS 0x434b 0x4000 0x6000 0x7000 0x57 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xea 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x434b
+drive D = 0xcd
+FALL
+PINS L L H L H H H H
+expect A = 0x434b
+RISE
+PINS L L H L H H H H
+expect A = 0x434b
+FALL
+PINS L L H L H H H H
+expect A = 0x434b
+RISE
+PINS H H H H H L H H
+expect A = 0x00ea
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ea
+RISE
+PINS H L H H H L H H
+expect A = 0x00ea
+FALL
+PINS H H H H H L H H
+expect A = 0x00ea
+RISE
+PINS H H H H H H H H
+expect A = 0x434c
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x434c
+RISE
+PINS H L H L H H H H
+expect A = 0x434c
+FALL
+PINS H L H L H H H H
+expect A = 0x434c
+RISE
+PINS H L H L H H H H
+expect A = 0x434c
+FALL
+PINS H H H H H H H H
+expect A = 0x434c
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x434d
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x434d
+RISE
+PINS H L H L H H H H
+expect A = 0x434d
+FALL
+PINS H L H L H H H H
+expect A = 0x434d
+RISE
+PINS H L H L H H H H
+expect A = 0x434d
+FALL
+PINS H H H H H H H H
+expect A = 0x434d
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+drive NotBUSREQ = L
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+FALL
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x43
+RISE
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x43
+FALL
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x43
+RISE
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x43
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+expect D = 0x43
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x4e
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x4e
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x4e
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x4e
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+expect D = 0x4e
+REGS 0x2222 0x3ffe 0x6000 0x7000 0x57 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xeb 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x2222
+drive D = 0xe3
+FALL
+PINS L L H L H H H H
+expect A = 0x2222
+RISE
+PINS L L H L H H H H
+expect A = 0x2222
+FALL
+PINS L L H L H H H H
+expect A = 0x2222
+RISE
+PINS H H H H H L H H
+expect A = 0x00eb
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00eb
+RISE
+PINS H L H H H L H H
+expect A = 0x00eb
+FALL
+PINS H H H H H L H H
+expect A = 0x00eb
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+drive D = 0x4e
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffe
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H L H H H H
+expect A = 0x3ffe
+RISE
+PINS H L H L H H H H
+expect A = 0x3ffe
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+clear D
+drive NotBUSREQ = L
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+drive D = 0x43
+FALL
+PINS H L H L H H H H
+expect A = 0x3fff
+RISE
+PINS H L H L H H H H
+expect A = 0x3fff
+FALL
+PINS H L H L H H H H
+expect A = 0x3fff
+RISE
+PINS H L H L H H H H
+expect A = 0x3fff
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x3fff
+FALL
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x20
+RISE
+PINS H L H H H H H H
+expect A = 0x3fff
+expect D = 0x20
+FALL
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x20
+RISE
+PINS H L H H L H H H
+expect A = 0x3fff
+expect D = 0x20
+FALL
+PINS H H H H H H H H
+expect A = 0x3fff
+expect D = 0x20
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffe
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffe
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffe
+expect D = 0x00
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x2223 0x3ffe 0x6000 0x7000 0x57 0x80 0x30 0x00 0x50 0x00 0x43 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xec 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x2223
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x2223
+RISE
+PINS L L H L H H H H
+expect A = 0x2223
+FALL
+PINS L L H L H H H H
+expect A = 0x2223
+RISE
+PINS H H H H H L H H
+expect A = 0x00ec
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ec
+RISE
+PINS H L H H H L H H
+expect A = 0x00ec
+FALL
+PINS H H H H H L H H
+expect A = 0x00ec
+RISE
+PINS L H H H H H H H
+expect A = 0x2224
+drive D = 0x36
+FALL
+PINS L L H L H H H H
+expect A = 0x2224
+RISE
+PINS L L H L H H H H
+expect A = 0x2224
+FALL
+PINS L L H L H H H H
+expect A = 0x2224
+RISE
+PINS H H H H H L H H
+expect A = 0x00ed
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ed
+RISE
+PINS H L H H H L H H
+expect A = 0x00ed
+FALL
+PINS H H H H H L H H
+expect A = 0x00ed
+drive NotBUSREQ = L
+RISE
+PINS H H H H H H H H
+expect A = 0x2225
+drive D = 0x03
+FALL
+PINS H L H L H H H H
+expect A = 0x2225
+RISE
+PINS H L H L H H H H
+expect A = 0x2225
+FALL
+PINS H L H L H H H H
+expect A = 0x2225
+RISE
+PINS H L H L H H H H
+expect A = 0x2225
+FALL
+PINS H H H H H H H H
+expect A = 0x2225
+clear D
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x2226
+drive D = 0x77
+FALL
+PINS H L H L H H H H
+expect A = 0x2226
+RISE
+PINS H L H L H H H H
+expect A = 0x2226
+FALL
+PINS H L H L H H H H
+expect A = 0x2226
+RISE
+PINS H L H L H H H H
+expect A = 0x2226
+FALL
+PINS H H H H H H H H
+expect A = 0x2226
+clear D
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x6003
+FALL
+PINS H L H H H H H H
+expect A = 0x6003
+expect D = 0x77
+RISE
+PINS H L H H H H H H
+expect A = 0x6003
+expect D = 0x77
+FALL
+PINS H L H H L H H H
+expect A = 0x6003
+expect D = 0x77
+RISE
+PINS H L H H L H H H
+expect A = 0x6003
+expect D = 0x77
+FALL
+PINS H H H H H H H H
+expect A = 0x6003
+expect D = 0x77
+REGS 0x2227 0x3ffe 0x6000 0x7000 0x57 0x80 0x30 0x00 0x50 0x00 0x43 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xee 0 0 0
+drive NotBUSREQ = L
+RISE
+PINS L H H H H H H H
+expect A = 0x2227
+drive D = 0x19
+FALL
+PINS L L H L H H H H
+expect A = 0x2227
+RISE
+PINS L L H L H H H H
+expect A = 0x2227
+FALL
+PINS L L H L H H H H
+expect A = 0x2227
+RISE
+PINS H H H H H L H H
+expect A = 0x00ee
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ee
+RISE
+PINS H L H H H L H H
+expect A = 0x00ee
+FALL
+PINS H H H H H L H H
+expect A = 0x00ee
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+REGS 0x2228 0x3ffe 0x6000 0x7000 0x57 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xef 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x2228
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x2228
+RISE
+PINS L L H L H H H H
+expect A = 0x2228
+FALL
+PINS L L H L H H H H
+expect A = 0x2228
+RISE
+PINS H H H H H L H H
+expect A = 0x00ef
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ef
+RISE
+PINS H L H H H L H H
+expect A = 0x00ef
+FALL
+PINS H H H H H L H H
+expect A = 0x00ef
+RISE
+PINS H H H H H H H H
+expect A = 0x2229
+drive D = 0x10
+FALL
+PINS H L H L H H H H
+expect A = 0x2229
+RISE
+PINS H L H L H H H H
+expect A = 0x2229
+FALL
+PINS H L H L H H H H
+expect A = 0x2229
+RISE
+PINS H L H L H H H H
+expect A = 0x2229
+FALL
+PINS H H H H H H H H
+expect A = 0x2229
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x5710
+FALL
+PINS H H H H H H H H
+expect A = 0x5710
+drive NotBUSREQ = L
+RISE
+PINS H H L L H H H H
+expect A = 0x5710
+drive D = 0xd7
+FALL
+PINS H H L L H H H H
+expect A = 0x5710
+RISE
+PINS H H L L H H H H
+expect A = 0x5710
+FALL
+PINS H H L L H H H H
+expect A = 0x5710
+RISE
+PINS H H L L H H H H
+expect A = 0x5710
+FALL
+PINS H H H H H H H H
+expect A = 0x5710
+clear D
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x222a 0x3ffe 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf0 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x222a
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x222a
+RISE
+PINS L L H L H H H H
+expect A = 0x222a
+FALL
+PINS L L H L H H H H
+expect A = 0x222a
+RISE
+PINS H H H H H L H H
+expect A = 0x00f0
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f0
+RISE
+PINS H L H H H L H H
+expect A = 0x00f0
+FALL
+PINS H H H H H L H H
+expect A = 0x00f0
+RISE
+PINS H H H H H H H H
+expect A = 0x222b
+drive D = 0x11
+FALL
+PINS H L H L H H H H
+expect A = 0x222b
+RISE
+PINS H L H L H H H H
+expect A = 0x222b
+FALL
+PINS H L H L H H H H
+expect A = 0x222b
+RISE
+PINS H L H L H H H H
+expect A = 0x222b
+FALL
+PINS H H H H H H H H
+expect A = 0x222b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0xd711
+FALL
+PINS H H H H H H H H
+expect A = 0xd711
+expect D = 0xd7
+RISE
+PINS H H L H L H H H
+expect A = 0xd711
+expect D = 0xd7
+FALL
+PINS H H L H L H H H
+expect A = 0xd711
+expect D = 0xd7
+drive NotBUSREQ = L
+RISE
+PINS H H L H L H H H
+expect A = 0xd711
+expect D = 0xd7
+FALL
+PINS H H L H L H H H
+expect A = 0xd711
+expect D = 0xd7
+RISE
+PINS H H L H L H H H
+expect A = 0xd711
+expect D = 0xd7
+FALL
+PINS H H H H H H H H
+expect A = 0xd711
+expect D = 0xd7
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x222c 0x3ffe 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf1 0 0 0
+print TAG=BUSREQ is sampled on the last T-state of an extended cycle only
+RISE
+PINS L H H H H H H H
+expect A = 0x222c
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x222c
+RISE
+PINS L L H L H H H H
+expect A = 0x222c
+FALL
+PINS L L H L H H H H
+expect A = 0x222c
+RISE
+PINS H H H H H L H H
+expect A = 0x00f1
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f1
+drive NotBUSREQ = L
+RISE
+PINS H L H H H L H H
+expect A = 0x00f1
+FALL
+PINS H H H H H L H H
+expect A = 0x00f1
+drive NotBUSREQ = H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffd
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffd
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffd
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffc
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffc
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffc
+expect D = 0x00
+REGS 0x222d 0x3ffc 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf2 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x222d
+drive D = 0xc5
+FALL
+PINS L L H L H H H H
+expect A = 0x222d
+RISE
+PINS L L H L H H H H
+expect A = 0x222d
+FALL
+PINS L L H L H H H H
+expect A = 0x222d
+RISE
+PINS H H H H H L H H
+expect A = 0x00f2
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f2
+drive NotBUSREQ = L
+RISE
+PINS H L H H H L H H
+expect A = 0x00f2
+FALL
+PINS H H H H H L H H
+expect A = 0x00f2
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffb
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffb
+expect D = 0x30
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffb
+expect D = 0x30
+RISE
+PINS H H H H H H H H
+expect A = 0x3ffa
+FALL
+PINS H L H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+RISE
+PINS H L H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+FALL
+PINS H L H H L H H H
+expect A = 0x3ffa
+expect D = 0x00
+RISE
+PINS H L H H L H H H
+expect A = 0x3ffa
+expect D = 0x00
+FALL
+PINS H H H H H H H H
+expect A = 0x3ffa
+expect D = 0x00
+REGS 0x222e 0x3ffa 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf3 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x222e
+drive D = 0x34
+FALL
+PINS L L H L H H H H
+expect A = 0x222e
+RISE
+PINS L L H L H H H H
+expect A = 0x222e
+FALL
+PINS L L H L H H H H
+expect A = 0x222e
+RISE
+PINS H H H H H L H H
+expect A = 0x00f3
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f3
+RISE
+PINS H L H H H L H H
+expect A = 0x00f3
+FALL
+PINS H H H H H L H H
+expect A = 0x00f3
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+drive D = 0x83
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+drive NotBUSREQ = L
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+clear D
+drive NotBUSREQ = H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+FALL
+PINS H L H H H H H H
+expect A = 0x934e
+expect D = 0x84
+RISE
+PINS H L H H H H H H
+expect A = 0x934e
+expect D = 0x84
+FALL
+PINS H L H H L H H H
+expect A = 0x934e
+expect D = 0x84
+RISE
+PINS H L H H L H H H
+expect A = 0x934e
+expect D = 0x84
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+expect D = 0x84
+REGS 0x222f 0x3ffa 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf4 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x222f
+drive D = 0x34
+FALL
+PINS L L H L H H H H
+expect A = 0x222f
+RISE
+PINS L L H L H H H H
+expect A = 0x222f
+FALL
+PINS L L H L H H H H
+expect A = 0x222f
+RISE
+PINS H H H H H L H H
+expect A = 0x00f4
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f4
+RISE
+PINS H L H H H L H H
+expect A = 0x00f4
+FALL
+PINS H H H H H L H H
+expect A = 0x00f4
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+drive D = 0x84
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+clear D
+drive NotBUSREQ = L
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+FALL
+PINS H L H H H H H H
+expect A = 0x934e
+expect D = 0x85
+RISE
+PINS H L H H H H H H
+expect A = 0x934e
+expect D = 0x85
+FALL
+PINS H L H H L H H H
+expect A = 0x934e
+expect D = 0x85
+RISE
+PINS H L H H L H H H
+expect A = 0x934e
+expect D = 0x85
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+expect D = 0x85
+REGS 0x2230 0x3ffa 0x6000 0x7000 0xd7 0x80 0x30 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf5 0 0 0
+print TAG=BUSREQ during wait states
+RISE
+PINS L H H H H H H H
+expect A = 0x2230
+drive D = 0x46
+FALL
+PINS L L H L H H H H
+expect A = 0x2230
+RISE
+PINS L L H L H H H H
+expect A = 0x2230
+FALL
+PINS L L H L H H H H
+expect A = 0x2230
+RISE
+PINS H H H H H L H H
+expect A = 0x00f5
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f5
+RISE
+PINS H L H H H L H H
+expect A = 0x00f5
+FALL
+PINS H H H H H L H H
+expect A = 0x00f5
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+drive D = 0x85
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+drive NotBUSREQ = L
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+drive NotWAIT = L
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+drive NotWAIT = H
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+clear D
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H H
+expect A = F
+expect D = F
+REGS 0x2231 0x3ffa 0x6000 0x7000 0xd7 0x80 0x85 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf6 0 0 0
+REGS 0x2231 0x3ffa 0x6000 0x7000 0xd7 0x80 0x85 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf6 0 0 0
+print TAG=Clock stopped (either level) mid-cycle and restarted: outputs and state hold
+RISE
+PINS L H H H H H H H
+expect A = 0x2231
+drive D = 0x46
+FALL
+PINS L L H L H H H H
+expect A = 0x2231
+RISE
+PINS L L H L H H H H
+expect A = 0x2231
+step 40
+FALL
+PINS L L H L H H H H
+expect A = 0x2231
+step 40
+RISE
+PINS H H H H H L H H
+expect A = 0x00f6
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f6
+step 40
+RISE
+PINS H L H H H L H H
+expect A = 0x00f6
+FALL
+PINS H H H H H L H H
+expect A = 0x00f6
+RISE
+PINS H H H H H H H H
+expect A = 0x934e
+drive D = 0x85
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+step 40
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+FALL
+PINS H L H L H H H H
+expect A = 0x934e
+RISE
+PINS H L H L H H H H
+expect A = 0x934e
+step 40
+FALL
+PINS H H H H H H H H
+expect A = 0x934e
+clear D
+REGS 0x2232 0x3ffa 0x6000 0x7000 0xd7 0x80 0x85 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf7 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x2232
+drive D = 0xd3
+FALL
+PINS L L H L H H H H
+expect A = 0x2232
+RISE
+PINS L L H L H H H H
+expect A = 0x2232
+FALL
+PINS L L H L H H H H
+expect A = 0x2232
+RISE
+PINS H H H H H L H H
+expect A = 0x00f7
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f7
+RISE
+PINS H L H H H L H H
+expect A = 0x00f7
+FALL
+PINS H H H H H L H H
+expect A = 0x00f7
+RISE
+PINS H H H H H H H H
+expect A = 0x2233
+drive D = 0x55
+FALL
+PINS H L H L H H H H
+expect A = 0x2233
+RISE
+PINS H L H L H H H H
+expect A = 0x2233
+FALL
+PINS H L H L H H H H
+expect A = 0x2233
+RISE
+PINS H L H L H H H H
+expect A = 0x2233
+FALL
+PINS H H H H H H H H
+expect A = 0x2233
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0xd755
+FALL
+PINS H H H H H H H H
+expect A = 0xd755
+expect D = 0xd7
+step 40
+RISE
+PINS H H L H L H H H
+expect A = 0xd755
+expect D = 0xd7
+FALL
+PINS H H L H L H H H
+expect A = 0xd755
+expect D = 0xd7
+RISE
+PINS H H L H L H H H
+expect A = 0xd755
+expect D = 0xd7
+step 40
+FALL
+PINS H H L H L H H H
+expect A = 0xd755
+expect D = 0xd7
+RISE
+PINS H H L H L H H H
+expect A = 0xd755
+expect D = 0xd7
+FALL
+PINS H H H H H H H H
+expect A = 0xd755
+expect D = 0xd7
+REGS 0x2234 0x3ffa 0x6000 0x7000 0xd7 0x80 0x85 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf8 0 0 0
+REGS 0x2234 0x3ffa 0x6000 0x7000 0xd7 0x80 0x85 0x00 0x50 0x00 0x93 0x4e 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xf8 0 0 0
+print TAG=RESET during execution: PC, I, R, IFF1, IFF2, IM cleared; other registers keep their values
+RISE
+PINS L H H H H H H H
+expect A = 0x2234
+drive D = 0x31
+FALL
+PINS L L H L H H H H
+expect A = 0x2234
+RISE
+PINS L L H L H H H H
+expect A = 0x2234
+FALL
+PINS L L H L H H H H
+expect A = 0x2234
+RISE
+PINS H H H H H L H H
+expect A = 0x00f8
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f8
+RISE
+PINS H L H H H L H H
+expect A = 0x00f8
+FALL
+PINS H H H H H L H H
+expect A = 0x00f8
+RISE
+PINS H H H H H H H H
+expect A = 0x2235
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x2235
+RISE
+PINS H L H L H H H H
+expect A = 0x2235
+FALL
+PINS H L H L H H H H
+expect A = 0x2235
+RISE
+PINS H L H L H H H H
+expect A = 0x2235
+FALL
+PINS H H H H H H H H
+expect A = 0x2235
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x2236
+drive D = 0x40
+FALL
+PINS H L H L H H H H
+expect A = 0x2236
+RISE
+PINS H L H L H H H H
+expect A = 0x2236
+FALL
+PINS H L H L H H H H
+expect A = 0x2236
+RISE
+PINS H L H L H H H H
+expect A = 0x2236
+FALL
+PINS H H H H H H H H
+expect A = 0x2236
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x2237
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x2237
+RISE
+PINS L L H L H H H H
+expect A = 0x2237
+FALL
+PINS L L H L H H H H
+expect A = 0x2237
+RISE
+PINS H H H H H L H H
+expect A = 0x00f9
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00f9
+RISE
+PINS H L H H H L H H
+expect A = 0x00f9
+FALL
+PINS H H H H H L H H
+expect A = 0x00f9
+RISE
+PINS H H H H H H H H
+expect A = 0x2238
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x2238
+RISE
+PINS H L H L H H H H
+expect A = 0x2238
+FALL
+PINS H L H L H H H H
+expect A = 0x2238
+RISE
+PINS H L H L H H H H
+expect A = 0x2238
+FALL
+PINS H H H H H H H H
+expect A = 0x2238
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x2239
+drive D = 0x20
+FALL
+PINS H L H L H H H H
+expect A = 0x2239
+RISE
+PINS H L H L H H H H
+expect A = 0x2239
+FALL
+PINS H L H L H H H H
+expect A = 0x2239
+RISE
+PINS H L H L H H H H
+expect A = 0x2239
+FALL
+PINS H H H H H H H H
+expect A = 0x2239
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x223a
+drive D = 0x01
+FALL
+PINS L L H L H H H H
+expect A = 0x223a
+RISE
+PINS L L H L H H H H
+expect A = 0x223a
+FALL
+PINS L L H L H H H H
+expect A = 0x223a
+RISE
+PINS H H H H H L H H
+expect A = 0x00fa
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fa
+RISE
+PINS H L H H H L H H
+expect A = 0x00fa
+FALL
+PINS H H H H H L H H
+expect A = 0x00fa
+RISE
+PINS H H H H H H H H
+expect A = 0x223b
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x223b
+RISE
+PINS H L H L H H H H
+expect A = 0x223b
+FALL
+PINS H L H L H H H H
+expect A = 0x223b
+RISE
+PINS H L H L H H H H
+expect A = 0x223b
+FALL
+PINS H H H H H H H H
+expect A = 0x223b
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x223c
+drive D = 0x30
+FALL
+PINS H L H L H H H H
+expect A = 0x223c
+RISE
+PINS H L H L H H H H
+expect A = 0x223c
+FALL
+PINS H L H L H H H H
+expect A = 0x223c
+RISE
+PINS H L H L H H H H
+expect A = 0x223c
+FALL
+PINS H H H H H H H H
+expect A = 0x223c
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x223d
+drive D = 0x11
+FALL
+PINS L L H L H H H H
+expect A = 0x223d
+RISE
+PINS L L H L H H H H
+expect A = 0x223d
+FALL
+PINS L L H L H H H H
+expect A = 0x223d
+RISE
+PINS H H H H H L H H
+expect A = 0x00fb
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fb
+RISE
+PINS H L H H H L H H
+expect A = 0x00fb
+FALL
+PINS H H H H H L H H
+expect A = 0x00fb
+RISE
+PINS H H H H H H H H
+expect A = 0x223e
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x223e
+RISE
+PINS H L H L H H H H
+expect A = 0x223e
+FALL
+PINS H L H L H H H H
+expect A = 0x223e
+RISE
+PINS H L H L H H H H
+expect A = 0x223e
+FALL
+PINS H H H H H H H H
+expect A = 0x223e
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x223f
+drive D = 0x50
+FALL
+PINS H L H L H H H H
+expect A = 0x223f
+RISE
+PINS H L H L H H H H
+expect A = 0x223f
+FALL
+PINS H L H L H H H H
+expect A = 0x223f
+RISE
+PINS H L H L H H H H
+expect A = 0x223f
+FALL
+PINS H H H H H H H H
+expect A = 0x223f
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x2240
+drive D = 0xdd
+FALL
+PINS L L H L H H H H
+expect A = 0x2240
+RISE
+PINS L L H L H H H H
+expect A = 0x2240
+FALL
+PINS L L H L H H H H
+expect A = 0x2240
+RISE
+PINS H H H H H L H H
+expect A = 0x00fc
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fc
+RISE
+PINS H L H H H L H H
+expect A = 0x00fc
+FALL
+PINS H H H H H L H H
+expect A = 0x00fc
+RISE
+PINS L H H H H H H H
+expect A = 0x2241
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x2241
+RISE
+PINS L L H L H H H H
+expect A = 0x2241
+FALL
+PINS L L H L H H H H
+expect A = 0x2241
+RISE
+PINS H H H H H L H H
+expect A = 0x00fd
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fd
+RISE
+PINS H L H H H L H H
+expect A = 0x00fd
+FALL
+PINS H H H H H L H H
+expect A = 0x00fd
+RISE
+PINS H H H H H H H H
+expect A = 0x2242
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x2242
+RISE
+PINS H L H L H H H H
+expect A = 0x2242
+FALL
+PINS H L H L H H H H
+expect A = 0x2242
+RISE
+PINS H L H L H H H H
+expect A = 0x2242
+FALL
+PINS H H H H H H H H
+expect A = 0x2242
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x2243
+drive D = 0x60
+FALL
+PINS H L H L H H H H
+expect A = 0x2243
+RISE
+PINS H L H L H H H H
+expect A = 0x2243
+FALL
+PINS H L H L H H H H
+expect A = 0x2243
+RISE
+PINS H L H L H H H H
+expect A = 0x2243
+FALL
+PINS H H H H H H H H
+expect A = 0x2243
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x2244
+drive D = 0xfd
+FALL
+PINS L L H L H H H H
+expect A = 0x2244
+RISE
+PINS L L H L H H H H
+expect A = 0x2244
+FALL
+PINS L L H L H H H H
+expect A = 0x2244
+RISE
+PINS H H H H H L H H
+expect A = 0x00fe
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00fe
+RISE
+PINS H L H H H L H H
+expect A = 0x00fe
+FALL
+PINS H H H H H L H H
+expect A = 0x00fe
+RISE
+PINS L H H H H H H H
+expect A = 0x2245
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x2245
+RISE
+PINS L L H L H H H H
+expect A = 0x2245
+FALL
+PINS L L H L H H H H
+expect A = 0x2245
+RISE
+PINS H H H H H L H H
+expect A = 0x00ff
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x00ff
+RISE
+PINS H L H H H L H H
+expect A = 0x00ff
+FALL
+PINS H H H H H L H H
+expect A = 0x00ff
+RISE
+PINS H H H H H H H H
+expect A = 0x2246
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x2246
+RISE
+PINS H L H L H H H H
+expect A = 0x2246
+FALL
+PINS H L H L H H H H
+expect A = 0x2246
+RISE
+PINS H L H L H H H H
+expect A = 0x2246
+FALL
+PINS H H H H H H H H
+expect A = 0x2246
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x2247
+drive D = 0x70
+FALL
+PINS H L H L H H H H
+expect A = 0x2247
+RISE
+PINS H L H L H H H H
+expect A = 0x2247
+FALL
+PINS H L H L H H H H
+expect A = 0x2247
+RISE
+PINS H L H L H H H H
+expect A = 0x2247
+FALL
+PINS H H H H H H H H
+expect A = 0x2247
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x2248
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x2248
+RISE
+PINS L L H L H H H H
+expect A = 0x2248
+FALL
+PINS L L H L H H H H
+expect A = 0x2248
+RISE
+PINS H H H H H L H H
+expect A = 0x0080
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0080
+RISE
+PINS H L H H H L H H
+expect A = 0x0080
+FALL
+PINS H H H H H L H H
+expect A = 0x0080
+RISE
+PINS H H H H H H H H
+expect A = 0x2249
+drive D = 0x5a
+FALL
+PINS H L H L H H H H
+expect A = 0x2249
+RISE
+PINS H L H L H H H H
+expect A = 0x2249
+FALL
+PINS H L H L H H H H
+expect A = 0x2249
+RISE
+PINS H L H L H H H H
+expect A = 0x2249
+FALL
+PINS H H H H H H H H
+expect A = 0x2249
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x224a
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x224a
+RISE
+PINS L L H L H H H H
+expect A = 0x224a
+FALL
+PINS L L H L H H H H
+expect A = 0x224a
+RISE
+PINS H H H H H L H H
+expect A = 0x0081
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0081
+RISE
+PINS H L H H H L H H
+expect A = 0x0081
+FALL
+PINS H H H H H L H H
+expect A = 0x0081
+RISE
+PINS H H H H H H H H
+expect A = 0x224b
+drive D = 0x12
+FALL
+PINS H L H L H H H H
+expect A = 0x224b
+RISE
+PINS H L H L H H H H
+expect A = 0x224b
+FALL
+PINS H L H L H H H H
+expect A = 0x224b
+RISE
+PINS H L H L H H H H
+expect A = 0x224b
+FALL
+PINS H H H H H H H H
+expect A = 0x224b
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x224c
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x224c
+RISE
+PINS L L H L H H H H
+expect A = 0x224c
+FALL
+PINS L L H L H H H H
+expect A = 0x224c
+RISE
+PINS H H H H H L H H
+expect A = 0x0082
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0082
+RISE
+PINS H L H H H L H H
+expect A = 0x0082
+FALL
+PINS H H H H H L H H
+expect A = 0x0082
+RISE
+PINS L H H H H H H H
+expect A = 0x224d
+drive D = 0x47
+FALL
+PINS L L H L H H H H
+expect A = 0x224d
+RISE
+PINS L L H L H H H H
+expect A = 0x224d
+FALL
+PINS L L H L H H H H
+expect A = 0x224d
+RISE
+PINS H H H H H L H H
+expect A = 0x0083
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0083
+RISE
+PINS H L H H H L H H
+expect A = 0x0083
+FALL
+PINS H H H H H L H H
+expect A = 0x0083
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS L H H H H H H H
+expect A = 0x224e
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x224e
+RISE
+PINS L L H L H H H H
+expect A = 0x224e
+FALL
+PINS L L H L H H H H
+expect A = 0x224e
+RISE
+PINS H H H H H L H H
+expect A = 0x1284
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1284
+RISE
+PINS H L H H H L H H
+expect A = 0x1284
+FALL
+PINS H H H H H L H H
+expect A = 0x1284
+RISE
+PINS L H H H H H H H
+expect A = 0x224f
+drive D = 0x5e
+FALL
+PINS L L H L H H H H
+expect A = 0x224f
+RISE
+PINS L L H L H H H H
+expect A = 0x224f
+FALL
+PINS L L H L H H H H
+expect A = 0x224f
+RISE
+PINS H H H H H L H H
+expect A = 0x1285
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1285
+RISE
+PINS H L H H H L H H
+expect A = 0x1285
+FALL
+PINS H H H H H L H H
+expect A = 0x1285
+RISE
+PINS L H H H H H H H
+expect A = 0x2250
+drive D = 0xfb
+FALL
+PINS L L H L H H H H
+expect A = 0x2250
+RISE
+PINS L L H L H H H H
+expect A = 0x2250
+FALL
+PINS L L H L H H H H
+expect A = 0x2250
+RISE
+PINS H H H H H L H H
+expect A = 0x1286
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1286
+RISE
+PINS H L H H H L H H
+expect A = 0x1286
+FALL
+PINS H H H H H L H H
+expect A = 0x1286
+RISE
+PINS L H H H H H H H
+expect A = 0x2251
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x2251
+RISE
+PINS L L H L H H H H
+expect A = 0x2251
+FALL
+PINS L L H L H H H H
+expect A = 0x2251
+RISE
+PINS H H H H H L H H
+expect A = 0x1287
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1287
+RISE
+PINS H L H H H L H H
+expect A = 0x1287
+FALL
+PINS H H H H H L H H
+expect A = 0x1287
+RISE
+PINS L H H H H H H H
+expect A = 0x2252
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x2252
+RISE
+PINS L L H L H H H H
+expect A = 0x2252
+FALL
+PINS L L H L H H H H
+expect A = 0x2252
+RISE
+PINS H H H H H L H H
+expect A = 0x1288
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1288
+RISE
+PINS H L H H H L H H
+expect A = 0x1288
+FALL
+PINS H H H H H L H H
+expect A = 0x1288
+RISE
+PINS L H H H H H H H
+expect A = 0x2253
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x2253
+RISE
+PINS L L H L H H H H
+expect A = 0x2253
+FALL
+PINS L L H L H H H H
+expect A = 0x2253
+RISE
+PINS H H H H H L H H
+expect A = 0x1289
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x1289
+RISE
+PINS H L H H H L H H
+expect A = 0x1289
+FALL
+PINS H H H H H L H H
+expect A = 0x1289
+REGS 0x2254 0x4000 0x6000 0x7000 0x12 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x12 0x8a 1 1 2
+print TAG=RESET low in T2 of an opcode fetch
+RISE
+PINS L H H H H H H H
+expect A = 0x2254
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x2254
+RISE
+PINS L L H L H H H H
+expect A = 0x2254
+FALL
+PINS L L H L H H H H
+expect A = 0x2254
+clear D
+drive NotRESET = L
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+REGS 0x0000 0x4000 0x6000 0x7000 0x12 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS L H H H H H H H
+expect A = 0x0001
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS L L H L H H H H
+expect A = 0x0001
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+REGS 0x0002 0x4000 0x6000 0x7000 0x12 0x80 0x30 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x02 0 0 0
+print TAG=RESET low while WR is active
+RISE
+PINS L H H H H H H H
+expect A = 0x0002
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0002
+RISE
+PINS L L H L H H H H
+expect A = 0x0002
+FALL
+PINS L L H L H H H H
+expect A = 0x0002
+RISE
+PINS H H H H H L H H
+expect A = 0x0002
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0002
+RISE
+PINS H L H H H L H H
+expect A = 0x0002
+FALL
+PINS H H H H H L H H
+expect A = 0x0002
+RISE
+PINS H H H H H H H H
+expect A = 0x0003
+drive D = 0x00
+FALL
+PINS H L H L H H H H
+expect A = 0x0003
+RISE
+PINS H L H L H H H H
+expect A = 0x0003
+FALL
+PINS H L H L H H H H
+expect A = 0x0003
+RISE
+PINS H L H L H H H H
+expect A = 0x0003
+FALL
+PINS H H H H H H H H
+expect A = 0x0003
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0004
+drive D = 0x20
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H H H H H H H H
+expect A = 0x0004
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0005
+drive D = 0x06
+FALL
+PINS L L H L H H H H
+expect A = 0x0005
+RISE
+PINS L L H L H H H H
+expect A = 0x0005
+FALL
+PINS L L H L H H H H
+expect A = 0x0005
+RISE
+PINS H H H H H L H H
+expect A = 0x0003
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0003
+RISE
+PINS H L H H H L H H
+expect A = 0x0003
+FALL
+PINS H H H H H L H H
+expect A = 0x0003
+RISE
+PINS H H H H H H H H
+expect A = 0x0006
+drive D = 0x77
+FALL
+PINS H L H L H H H H
+expect A = 0x0006
+RISE
+PINS H L H L H H H H
+expect A = 0x0006
+FALL
+PINS H L H L H H H H
+expect A = 0x0006
+RISE
+PINS H L H L H H H H
+expect A = 0x0006
+FALL
+PINS H H H H H H H H
+expect A = 0x0006
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0007
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0007
+RISE
+PINS L L H L H H H H
+expect A = 0x0007
+FALL
+PINS L L H L H H H H
+expect A = 0x0007
+RISE
+PINS H H H H H L H H
+expect A = 0x0004
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0004
+RISE
+PINS H L H H H L H H
+expect A = 0x0004
+FALL
+PINS H H H H H L H H
+expect A = 0x0004
+RISE
+PINS H H H H H H H H
+expect A = 0x0008
+drive D = 0x34
+FALL
+PINS H L H L H H H H
+expect A = 0x0008
+RISE
+PINS H L H L H H H H
+expect A = 0x0008
+FALL
+PINS H L H L H H H H
+expect A = 0x0008
+RISE
+PINS H L H L H H H H
+expect A = 0x0008
+FALL
+PINS H H H H H H H H
+expect A = 0x0008
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0009
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x0009
+RISE
+PINS L L H L H H H H
+expect A = 0x0009
+FALL
+PINS L L H L H H H H
+expect A = 0x0009
+RISE
+PINS H H H H H L H H
+expect A = 0x0005
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0005
+RISE
+PINS H L H H H L H H
+expect A = 0x0005
+FALL
+PINS H H H H H L H H
+expect A = 0x0005
+RISE
+PINS L H H H H H H H
+expect A = 0x000a
+drive D = 0x47
+FALL
+PINS L L H L H H H H
+expect A = 0x000a
+RISE
+PINS L L H L H H H H
+expect A = 0x000a
+FALL
+PINS L L H L H H H H
+expect A = 0x000a
+RISE
+PINS H H H H H L H H
+expect A = 0x0006
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0006
+RISE
+PINS H L H H H L H H
+expect A = 0x0006
+FALL
+PINS H H H H H L H H
+expect A = 0x0006
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS L H H H H H H H
+expect A = 0x000b
+drive D = 0xed
+FALL
+PINS L L H L H H H H
+expect A = 0x000b
+RISE
+PINS L L H L H H H H
+expect A = 0x000b
+FALL
+PINS L L H L H H H H
+expect A = 0x000b
+RISE
+PINS H H H H H L H H
+expect A = 0x3407
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x3407
+RISE
+PINS H L H H H L H H
+expect A = 0x3407
+FALL
+PINS H H H H H L H H
+expect A = 0x3407
+RISE
+PINS L H H H H H H H
+expect A = 0x000c
+drive D = 0x56
+FALL
+PINS L L H L H H H H
+expect A = 0x000c
+RISE
+PINS L L H L H H H H
+expect A = 0x000c
+FALL
+PINS L L H L H H H H
+expect A = 0x000c
+RISE
+PINS H H H H H L H H
+expect A = 0x3408
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x3408
+RISE
+PINS H L H H H L H H
+expect A = 0x3408
+FALL
+PINS H H H H H L H H
+expect A = 0x3408
+RISE
+PINS L H H H H H H H
+expect A = 0x000d
+drive D = 0xfb
+FALL
+PINS L L H L H H H H
+expect A = 0x000d
+RISE
+PINS L L H L H H H H
+expect A = 0x000d
+FALL
+PINS L L H L H H H H
+expect A = 0x000d
+RISE
+PINS H H H H H L H H
+expect A = 0x3409
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x3409
+RISE
+PINS H L H H H L H H
+expect A = 0x3409
+FALL
+PINS H H H H H L H H
+expect A = 0x3409
+RISE
+PINS L H H H H H H H
+expect A = 0x000e
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x000e
+RISE
+PINS L L H L H H H H
+expect A = 0x000e
+FALL
+PINS L L H L H H H H
+expect A = 0x000e
+RISE
+PINS H H H H H L H H
+expect A = 0x340a
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x340a
+RISE
+PINS H L H H H L H H
+expect A = 0x340a
+FALL
+PINS H H H H H L H H
+expect A = 0x340a
+RISE
+PINS L H H H H H H H
+expect A = 0x000f
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x000f
+RISE
+PINS L L H L H H H H
+expect A = 0x000f
+FALL
+PINS L L H L H H H H
+expect A = 0x000f
+RISE
+PINS H H H H H L H H
+expect A = 0x340b
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x340b
+RISE
+PINS H L H H H L H H
+expect A = 0x340b
+FALL
+PINS H H H H H L H H
+expect A = 0x340b
+RISE
+PINS L H H H H H H H
+expect A = 0x0010
+drive D = 0x70
+FALL
+PINS L L H L H H H H
+expect A = 0x0010
+RISE
+PINS L L H L H H H H
+expect A = 0x0010
+FALL
+PINS L L H L H H H H
+expect A = 0x0010
+RISE
+PINS H H H H H L H H
+expect A = 0x340c
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x340c
+RISE
+PINS H L H H H L H H
+expect A = 0x340c
+FALL
+PINS H H H H H L H H
+expect A = 0x340c
+RISE
+PINS H H H H H H H H
+expect A = 0x2000
+FALL
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x77
+RISE
+PINS H L H H H H H H
+expect A = 0x2000
+expect D = 0x77
+FALL
+PINS H L H H L H H H
+expect A = 0x2000
+expect D = 0x77
+drive NotRESET = L
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+REGS 0x0000 0x4000 0x6000 0x7000 0x34 0x80 0x77 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+print TAG=RESET low during an I/O read
+RISE
+PINS L H H H H H H H
+expect A = 0x0001
+drive D = 0x3e
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS L L H L H H H H
+expect A = 0x0001
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+RISE
+PINS H H H H H H H H
+expect A = 0x0002
+drive D = 0x33
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H H H H H H H H
+expect A = 0x0002
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0003
+drive D = 0xdb
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS L L H L H H H H
+expect A = 0x0003
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS H H H H H L H H
+expect A = 0x0002
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0002
+RISE
+PINS H L H H H L H H
+expect A = 0x0002
+FALL
+PINS H H H H H L H H
+expect A = 0x0002
+RISE
+PINS H H H H H H H H
+expect A = 0x0004
+drive D = 0x44
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H H H H H H H H
+expect A = 0x0004
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x3344
+FALL
+PINS H H H H H H H H
+expect A = 0x3344
+RISE
+PINS H H L L H H H H
+expect A = 0x3344
+drive D = 0x56
+FALL
+PINS H H L L H H H H
+expect A = 0x3344
+RISE
+PINS H H L L H H H H
+expect A = 0x3344
+FALL
+PINS H H L L H H H H
+expect A = 0x3344
+clear D
+drive NotRESET = L
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+REGS 0x0000 0x4000 0x6000 0x7000 0x33 0x80 0x77 0x00 0x50 0x00 0x20 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+print TAG=RESET low during an internal cycle
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS H H H H H H H H
+expect A = 0x0001
+drive D = 0x11
+FALL
+PINS H L H L H H H H
+expect A = 0x0001
+RISE
+PINS H L H L H H H H
+expect A = 0x0001
+FALL
+PINS H L H L H H H H
+expect A = 0x0001
+RISE
+PINS H L H L H H H H
+expect A = 0x0001
+FALL
+PINS H H H H H H H H
+expect A = 0x0001
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0002
+drive D = 0x11
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H H H H H H H H
+expect A = 0x0002
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0003
+drive D = 0x01
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS L L H L H H H H
+expect A = 0x0003
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+RISE
+PINS H H H H H H H H
+expect A = 0x0004
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H L H L H H H H
+expect A = 0x0004
+RISE
+PINS H L H L H H H H
+expect A = 0x0004
+FALL
+PINS H H H H H H H H
+expect A = 0x0004
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0005
+drive D = 0x22
+FALL
+PINS H L H L H H H H
+expect A = 0x0005
+RISE
+PINS H L H L H H H H
+expect A = 0x0005
+FALL
+PINS H L H L H H H H
+expect A = 0x0005
+RISE
+PINS H L H L H H H H
+expect A = 0x0005
+FALL
+PINS H H H H H H H H
+expect A = 0x0005
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0006
+drive D = 0x09
+FALL
+PINS L L H L H H H H
+expect A = 0x0006
+RISE
+PINS L L H L H H H H
+expect A = 0x0006
+FALL
+PINS L L H L H H H H
+expect A = 0x0006
+RISE
+PINS H H H H H L H H
+expect A = 0x0002
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0002
+RISE
+PINS H L H H H L H H
+expect A = 0x0002
+FALL
+PINS H H H H H L H H
+expect A = 0x0002
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+RISE
+PINS H H H H H H H H
+FALL
+PINS H H H H H H H H
+drive NotRESET = L
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+REGS 0x0000 0x4000 0x6000 0x7000 0x33 0x80 0x22 0x22 0x50 0x00 0x11 0x11 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+print TAG=RESET releases the bus grant: BUSACK returns high, A and D float
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x21
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS H H H H H H H H
+expect A = 0x0001
+drive D = 0x11
+FALL
+PINS H L H L H H H H
+expect A = 0x0001
+RISE
+PINS H L H L H H H H
+expect A = 0x0001
+FALL
+PINS H L H L H H H H
+expect A = 0x0001
+RISE
+PINS H L H L H H H H
+expect A = 0x0001
+FALL
+PINS H H H H H H H H
+expect A = 0x0001
+clear D
+RISE
+PINS H H H H H H H H
+expect A = 0x0002
+drive D = 0x11
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H L H L H H H H
+expect A = 0x0002
+RISE
+PINS H L H L H H H H
+expect A = 0x0002
+FALL
+PINS H H H H H H H H
+expect A = 0x0002
+clear D
+RISE
+PINS L H H H H H H H
+expect A = 0x0003
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS L L H L H H H H
+expect A = 0x0003
+FALL
+PINS L L H L H H H H
+expect A = 0x0003
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+drive NotBUSREQ = L
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+RISE
+PINS H F F F F F H L
+expect A = F
+expect D = F
+FALL
+PINS H F F F F F H L
+expect A = F
+expect D = F
+drive NotBUSREQ = H
+drive NotRESET = L
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+RISE
+PINS H H H H H H H H
+expect A = F
+expect D = F
+FALL
+PINS H H H H H H H H
+expect A = F
+expect D = F
+drive NotRESET = H
+REGS 0x0000 0x4000 0x6000 0x7000 0x33 0x80 0x22 0x22 0x50 0x00 0x11 0x11 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0 0 0
+RISE
+PINS L H H H H H H H
+expect A = 0x0000
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS L L H L H H H H
+expect A = 0x0000
+FALL
+PINS L L H L H H H H
+expect A = 0x0000
+RISE
+PINS H H H H H L H H
+expect A = 0x0000
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0000
+RISE
+PINS H L H H H L H H
+expect A = 0x0000
+FALL
+PINS H H H H H L H H
+expect A = 0x0000
+RISE
+PINS L H H H H H H H
+expect A = 0x0001
+drive D = 0x00
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS L L H L H H H H
+expect A = 0x0001
+FALL
+PINS L L H L H H H H
+expect A = 0x0001
+RISE
+PINS H H H H H L H H
+expect A = 0x0001
+clear D
+FALL
+PINS H L H H H L H H
+expect A = 0x0001
+RISE
+PINS H L H H H L H H
+expect A = 0x0001
+FALL
+PINS H H H H H L H H
+expect A = 0x0001
+REGS 0x0002 0x4000 0x6000 0x7000 0x33 0x80 0x22 0x22 0x50 0x00 0x11 0x11 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x02 0 0 0
