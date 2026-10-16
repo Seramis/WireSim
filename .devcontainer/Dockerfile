@@ -13,10 +13,22 @@ RUN microdnf install -y \
         libwayland-client libwayland-cursor libwayland-egl libxkbcommon libdecor \
         libX11 libXext libXrandr libXcursor libXi libXfixes libXrender \
         git gdb socat pkgconf-pkg-config sudo which findutils shadow-utils \
-        tar gzip \
+        tar gzip xz \
         pdftotext valgrind strace file procps-ng \
         nodejs npm \
     && microdnf clean all
+
+# sjasmplus (Z80 assembler for the Z80Echo machine) is not packaged for Fedora:
+# build the pinned release from source (CMake, no dependencies) into /usr/local.
+ARG SJASMPLUS_VERSION=1.24.0
+ARG SJASMPLUS_SHA256=0b5013f07e8d8505f9e296529655668b6fdf0268625c19e883b0fff484e209f1
+RUN curl -fsSL -o /tmp/sjasmplus.tar.xz \
+        https://github.com/z00m128/sjasmplus/releases/download/v${SJASMPLUS_VERSION}/sjasmplus-${SJASMPLUS_VERSION}-src.tar.xz \
+    && echo "${SJASMPLUS_SHA256}  /tmp/sjasmplus.tar.xz" | sha256sum -c - \
+    && mkdir /tmp/sjasmplus && tar -xJf /tmp/sjasmplus.tar.xz -C /tmp/sjasmplus --strip-components=1 \
+    && cmake -S /tmp/sjasmplus -B /tmp/sjasmplus/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+    && cmake --build /tmp/sjasmplus/build && cmake --install /tmp/sjasmplus/build \
+    && rm -rf /tmp/sjasmplus /tmp/sjasmplus.tar.xz
 
 # valgrind/strace/file/procps-ng back the memcheck, cache-profiling and
 # syscall-tracing skills agents reach for on this performance-sensitive

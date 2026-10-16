@@ -1,0 +1,73 @@
+# MachineHarness regression test for Z80Echo: boots a small wiring-test image
+# (Firmware/machinetest.asm, not the echo firmware) that pushes values through
+# every decoded window via the real CPU and bus, then parks in HALT.
+# This proves Chipset's decode and the shared-bus wiring, not any device's own
+# register semantics (that is each device's .devtest):
+#   - SRAM at $8000-$FFFF: cells under each of A13/A14 set and clear, checked
+#     both by the CPU's read-back and directly in the chip.
+#   - EEPROM reads at $0000 / $7FFF and an ignored write (which must not land
+#     in SRAM either).
+#   - UART at I/O ports $80-$87: register select on A0-A2, no response from
+#     ports outside the window or from memory accesses at a port-like address.
+#   - UART INT -> Z80 /INT, serviced by an IM 1 handler at $0038.
+# The TCP console path (receive, echo, flow control) is exercised by hand; see
+# AGENTS.md.
+#
+# Run it with `ctest --test-dir build/<preset> -R machinetest.Z80Echo` (or the
+# `check` target, which builds everything first). CMake assembles the image
+# (Firmware/machinetest.asm) to <build dir>/rom/Z80Echo-machinetest, and the
+# test runs from the build directory so the `rom=` path below resolves. By hand:
+#
+#   cd build/release && ./MachineHarness ../../src/Machines/Z80Echo/Z80Echo.machinetest
+
+machine Z80Echo rom=rom/Z80Echo-machinetest
+
+# SRAM index = address - $8000. The image stores its read-backs at $8100 + n.
+def EXPECT_RAM           # $0 = SRAM index, $1 = expected value
+  expect ram[$0] = $1
+end
+
+print SECTION=boot-and-wiring-image
+run 6000
+expect cpu.PC = 0x0701      # parked in HALT at $0700: PC is the next fetch
+expect cpu.IFF1 = 0
+expect ram[0x120] = 0x77    # the image ran to its last store
+
+print SECTION=sram-address-lines-in-the-chip
+EXPECT_RAM 0x0000 0x11     # $8000
+EXPECT_RAM 0x4000 0x22     # $C000
+EXPECT_RAM 0x7FF0 0x33     # $FFF0
+EXPECT_RAM 0x2000 0x44     # $A000
+
+print SECTION=sram-read-back-through-the-cpu
+EXPECT_RAM 0x100 0x11
+EXPECT_RAM 0x101 0x22
+EXPECT_RAM 0x102 0x33
+EXPECT_RAM 0x103 0x44
+
+print SECTION=eeprom-reads-and-ignored-write
+EXPECT_RAM 0x104 0xF3       # $0000: DI, the first opcode
+EXPECT_RAM 0x105 0x5A       # $7FFF: last cell
+EXPECT_RAM 0x106 0x3C       # $7000 after a write of 0: unchanged
+EXPECT_RAM 0x7000 0x00     # ...and the write did not alias into SRAM ($F000)
+
+print SECTION=uart-registers-through-io-ports
+EXPECT_RAM 0x107 0xC3       # SPR (port $87)
+EXPECT_RAM 0x108 0x1B       # LCR (port $83)
+EXPECT_RAM 0x109 0x03       # MCR (port $84)
+expect uart.SPR = 0xC3
+
+print SECTION=uart-ignores-other-ports-and-memory-cycles
+# Writes of $3C to ports $97 / $8F / $07 left SPR alone (checked above);
+# a port read outside the window sees an undriven bus.
+EXPECT_RAM 0x10B 0x00
+# A memory write at $8087 reached SRAM, not the UART.
+EXPECT_RAM 0x10A 0x3C
+EXPECT_RAM 0x0087 0x3C
+
+print SECTION=uart-int-reaches-cpu-exactly-once
+EXPECT_RAM 0x110 0x01       # IM 1 handler ran once
+EXPECT_RAM 0x111 0x5A       # ...and read the looped-back byte
+expect uart.RxFifoSize = 0
+expect uart.InterruptPending = 0
+expect cpu.IM = 1

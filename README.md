@@ -52,7 +52,7 @@ For debugging, the `asm-test` skill runs a small 65C02 assembly program and read
 
 ### Option 1: VS Code with the dev container
 
-The dev container provides the full toolchain (clang, CMake, Ninja, Verilator, cc65, SDL2, gdb) so nothing needs to be installed on the host.
+The dev container provides the full toolchain (clang, CMake, Ninja, Verilator, cc65, sjasmplus, SDL2, gdb) so nothing needs to be installed on the host.
 
 Requirements on the host:
 
@@ -71,7 +71,7 @@ Steps:
 
 ### Option 2: Command line
 
-Install the toolchain on the host: `clang++` (C++23), CMake 3.20 or newer, Ninja or Make, `verilator`, `ca65`/`ld65` from cc65, and the SDL2 development headers (on Fedora: `sdl2-compat-devel`). `socat` is needed for the console helper script.
+Install the toolchain on the host: `clang++` (C++23), CMake 3.20 or newer, Ninja or Make, `verilator`, `ca65`/`ld65` from cc65, `sjasmplus` (only for the Z80Echo firmware; build it from [its releases](https://github.com/z00m128/sjasmplus/releases) with CMake), and the SDL2 development headers (on Fedora: `sdl2-compat-devel`). `socat` is needed for the console helper script.
 
 ```bash
 git submodule update --init                     # fetch msbasic, once

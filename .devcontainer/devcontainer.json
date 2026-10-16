@@ -62,7 +62,18 @@
                     "type": "cppdbg",
                     "MIMode": "gdb",
                     "stopAtEntry": false
-                }
+                },
+                // Both assembler extensions claim .asm/.inc, so pick the language per
+                // machine folder. Z80Echo is sjasmplus; the 6502 machines are ca65.
+                "files.associations": {
+                    "**/src/Machines/Z80Echo/**/*.{asm,inc}": "sjasmplus",
+                    "**/src/Machines/{My6502,BenEater6502}/**/*.{asm,s,inc}": "ca65"
+                },
+                // Keep the sjasmplus symbol index (completion, go-to-definition,
+                // diagnostics) out of the ca65 sources. ROM_BIN is passed as -D by
+                // Firmware/build.sh.
+                "sjasmplus-code-lens.excludeFiles": "**/src/Machines/{My6502,BenEater6502}/**",
+                "sjasmplus-code-lens.defines": ["ROM_BIN"]
             },
             "extensions": [
                 "llvm-vs-code-extensions.vscode-clangd",
@@ -70,7 +81,8 @@
                 "ms-vscode.cpptools",
                 "Anthropic.claude-code",
                 "tlgkccampbell.code-ca65",
-                "mshr-h.veriloghdl"
+                "mshr-h.veriloghdl",
+                "kolnogorov.sjasmplus-code-lens"
             ]
         }
     }

@@ -1,6 +1,6 @@
 # Dev container
 
-Container Fedora 44-based. Have full build toolchain (clang, cmake, ninja, verilator, cc65) plus everything SDL2 device windows need show on host.
+Fedora 44-based container. Full build toolchain (clang, cmake, ninja, verilator, cc65, sjasmplus) plus everything SDL2 device windows need to show on host.
 
 ## GUI passthrough
 
