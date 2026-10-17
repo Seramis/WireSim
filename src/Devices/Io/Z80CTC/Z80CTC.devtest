@@ -1,0 +1,769 @@
+# Z80CTC: reset, channel select, control/vector/time-constant words, timer and counter modes,
+# trigger start, counter read-back, interrupts (vector, priority, nesting, RETI, daisy chain).
+
+# ---- clock -----------------------------------------------------------------
+# One call = one clock phase. Outputs follow an edge one cycle later (stable write lag), hence `step 2`.
+# Every macro starts and ends with CLK low.
+def RISE
+  drive CLK = H
+  step 2
+end
+def FALL
+  drive CLK = L
+  step 2
+end
+def CLK1
+  RISE
+  FALL
+end
+def CLK2
+  CLK1
+  CLK1
+end
+def CLK4
+  CLK2
+  CLK2
+end
+def CLK8
+  CLK4
+  CLK4
+end
+def CLK16
+  CLK8
+  CLK8
+end
+def CLK64
+  CLK16
+  CLK16
+  CLK16
+  CLK16
+end
+def CLK256
+  CLK64
+  CLK64
+  CLK64
+  CLK64
+end
+
+# ---- Z80 I/O bus cycles ----------------------------------------------------
+def IDLE
+  drive NotCE = H
+  drive NotIORQ = H
+  drive NotRD = H
+  drive NotM1 = H
+  clear D
+  step
+end
+def SEL0
+  drive CS0 = L
+  drive CS1 = L
+end
+def SEL1
+  drive CS0 = H
+  drive CS1 = L
+end
+def SEL2
+  drive CS0 = L
+  drive CS1 = H
+end
+def SEL3
+  drive CS0 = H
+  drive CS1 = H
+end
+# I/O write to the channel chosen by SELn. $0 = data. The word is taken on the first rising edge.
+def WRITE
+  drive D = $0
+  drive NotCE = L
+  drive NotIORQ = L
+  step
+  RISE
+  FALL
+  IDLE
+end
+# I/O read. $0 = value the CTC must present (checked before and after the rising edge in the cycle).
+def READ
+  drive NotCE = L
+  drive NotIORQ = L
+  drive NotRD = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Interrupt acknowledge. $0 = vector the CTC must present, or F for none.
+def INTA
+  drive NotM1 = L
+  drive NotIORQ = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Opcode fetch of $0, then one more edge so the CTC decodes it.
+def FETCH
+  drive NotM1 = L
+  drive NotRD = L
+  drive D = $0
+  step
+  RISE
+  FALL
+  IDLE
+  CLK1
+end
+def RETI
+  FETCH 0xED
+  FETCH 0x4D
+end
+
+# Counter-mode edge on pin $0 followed by one clock edge. Falling-edge channel: counts on the 1 -> 0 edge.
+def PULSEF
+  drive $0 = H
+  step
+  drive $0 = L
+  step
+  CLK1
+end
+def PULSEF4
+  PULSEF $0
+  PULSEF $0
+  PULSEF $0
+  PULSEF $0
+end
+def PULSEF16
+  PULSEF4 $0
+  PULSEF4 $0
+  PULSEF4 $0
+  PULSEF4 $0
+end
+def PULSEF64
+  PULSEF16 $0
+  PULSEF16 $0
+  PULSEF16 $0
+  PULSEF16 $0
+end
+# Rising-edge channel: counts on the 0 -> 1 edge.
+def PULSER
+  drive $0 = H
+  step
+  CLK1
+  drive $0 = L
+  step
+end
+def PULSER4
+  PULSER $0
+  PULSER $0
+  PULSER $0
+  PULSER $0
+end
+def PULSER16
+  PULSER4 $0
+  PULSER4 $0
+  PULSER4 $0
+  PULSER4 $0
+end
+def PULSER64
+  PULSER16 $0
+  PULSER16 $0
+  PULSER16 $0
+  PULSER16 $0
+end
+
+def RESET
+  drive NotRESET = L
+  step
+  drive NotRESET = H
+  step
+end
+
+# $0..$6 = Control TimeConstant Count Running AwaitTc IntPending IntService of channel $7
+def CH
+  expect reg.Ch$7.Control = $0
+  expect reg.Ch$7.TimeConstant = $1
+  expect reg.Ch$7.Count = $2
+  expect reg.Ch$7.Running = $3
+  expect reg.Ch$7.AwaitTc = $4
+  expect reg.Ch$7.IntPending = $5
+  expect reg.Ch$7.IntService = $6
+end
+
+device Z80CTC
+drive CLK = L
+drive IEI = H
+drive NotRESET = H
+drive ClkTrg0 = L
+drive ClkTrg1 = L
+drive ClkTrg2 = L
+drive ClkTrg3 = L
+SEL0
+IDLE
+RESET
+
+# ---- reset state -----------------------------------------------------------
+print TAG=reset
+expect NotINT = F
+expect IEO = H
+expect ZcTo0 = L
+expect ZcTo1 = L
+expect ZcTo2 = L
+expect D = F
+CH 0x00 0 0 0 0 0 0 0
+CH 0x00 0 0 0 0 0 0 3
+
+# ---- control words reach the selected channel ------------------------------
+print TAG=channel-select
+SEL0
+WRITE 0x03
+SEL1
+WRITE 0x43
+SEL2
+WRITE 0x83
+SEL3
+WRITE 0xC3
+expect reg.Ch0.Control = 0x03
+expect reg.Ch1.Control = 0x43
+expect reg.Ch2.Control = 0x83
+expect reg.Ch3.Control = 0xC3
+# Reset bit set and no time constant: every channel stays stopped.
+expect reg.Ch0.Running = 0
+expect reg.Ch1.Running = 0
+expect reg.Ch2.Running = 0
+expect reg.Ch3.Running = 0
+# Writes are ignored without NotCE and during an acknowledge cycle.
+SEL0
+drive D = 0x05
+drive NotIORQ = L
+step
+RISE
+FALL
+IDLE
+expect reg.Ch0.Control = 0x03
+drive D = 0x05
+drive NotCE = L
+drive NotIORQ = L
+drive NotM1 = L
+step
+RISE
+FALL
+IDLE
+expect reg.Ch0.Control = 0x03
+# One write per strobe assertion, however many rising edges it spans: the second and third
+# edges must not take the time constant that follows.
+drive D = 0x05
+drive NotCE = L
+drive NotIORQ = L
+step
+CLK1
+CLK1
+RISE
+FALL
+IDLE
+expect reg.Ch0.Control = 0x05
+expect reg.Ch0.AwaitTc = 1
+expect reg.Ch0.Running = 0
+RESET
+
+# ---- time constant ---------------------------------------------------------
+print TAG=time-constant
+# Control word with TC-follows; the next write is the time constant even though its D0 is 0,
+# and it does not touch the vector register.
+SEL0
+WRITE 0x40
+expect reg.Vector = 0x40
+WRITE 0x05
+CH 0x05 0 0 0 1 0 0 0
+WRITE 0x10
+CH 0x05 0x10 0x10 1 0 0 0 0
+expect reg.Vector = 0x40
+RESET
+
+# ---- timer mode, prescaler 16 ----------------------------------------------
+print TAG=timer-16
+# Timer, /16, auto start, TC follows: period = 16 * 3 = 48 clocks, counted from the edge after the load.
+SEL0
+WRITE 0x05
+WRITE 0x03
+expect reg.Ch0.Count = 3
+expect ZcTo0 = L
+# 15 edges: prescaler still short of its first wrap.
+CLK8
+CLK4
+CLK2
+CLK1
+expect reg.Ch0.Count = 3
+expect reg.Ch0.Prescaler = 15
+CLK1
+expect reg.Ch0.Count = 2
+expect reg.Ch0.Prescaler = 0
+# 47 edges since the load: one short of the zero count.
+CLK16
+CLK8
+CLK4
+CLK2
+CLK1
+expect reg.Ch0.Count = 1
+expect ZcTo0 = L
+# 48th edge: zero count. ZC/TO is high from the rising edge to the next falling edge.
+RISE
+expect ZcTo0 = H
+expect reg.Ch0.Count = 3
+FALL
+expect ZcTo0 = L
+# The channel keeps running: second period, same length.
+CLK16
+CLK16
+CLK8
+CLK4
+CLK2
+CLK1
+expect ZcTo0 = L
+RISE
+expect ZcTo0 = H
+FALL
+expect ZcTo0 = L
+# No interrupt without bit 7.
+expect NotINT = F
+RESET
+
+# ---- timer mode, prescaler 256, TC 256 -------------------------------------
+print TAG=timer-256
+# TC of 0 loads as 256. Divided by 256 the first prescaler wrap is 256 edges away.
+SEL1
+WRITE 0x25
+WRITE 0x00
+CH 0x25 0 256 1 0 0 0 1
+CLK256
+expect reg.Ch1.Count = 255
+expect reg.Ch1.Prescaler = 0
+READ 0xFF
+RESET
+
+# ---- counter read-back -----------------------------------------------------
+print TAG=read-back
+SEL2
+WRITE 0x05
+WRITE 0x03
+CLK8
+CLK4
+CLK2
+CLK1
+# Count is 3 until the 16th edge. A read covering that edge presents the value from its start.
+READ 0x03
+expect reg.Ch2.Count = 2
+READ 0x02
+# Other channel: reading does not disturb it and returns that channel's own counter.
+SEL0
+READ 0x00
+RESET
+
+# ---- timer trigger start ---------------------------------------------------
+print TAG=timer-trigger
+# Timer, /16, rising-edge trigger, TC follows. Loaded but not running down until triggered.
+SEL0
+# An edge before the channel is loaded starts nothing.
+drive ClkTrg0 = H
+step
+WRITE 0x1D
+WRITE 0x02
+CH 0x1D 2 2 1 0 0 0 0
+CLK16
+CLK16
+CLK16
+expect reg.Ch0.Count = 2
+expect reg.Ch0.Prescaler = 0
+expect ZcTo0 = L
+# A falling edge is not the programmed edge.
+drive ClkTrg0 = L
+step
+CLK16
+expect reg.Ch0.Count = 2
+expect reg.Ch0.Prescaler = 0
+# Rising edge. Timing begins on the second rising clock edge after it; the first
+# prescaler count is on that edge, so 2 * 16 counts end on the 33rd edge.
+drive ClkTrg0 = H
+step
+expect reg.Ch0.Prescaler = 0
+CLK1
+expect reg.Ch0.Prescaler = 0
+CLK1
+expect reg.Ch0.Prescaler = 1
+CLK16
+CLK8
+CLK4
+CLK2
+expect reg.Ch0.Prescaler = 15
+expect reg.Ch0.Count = 1
+expect ZcTo0 = L
+# Edges so far: 2 + 16 + 8 + 4 + 2 = 32.
+RISE
+expect ZcTo0 = H
+FALL
+expect ZcTo0 = L
+# A new trigger edge while running does not restart it.
+drive ClkTrg0 = L
+step
+drive ClkTrg0 = H
+step
+CLK16
+expect reg.Ch0.Prescaler = 0
+expect reg.Ch0.Count = 1
+drive ClkTrg0 = L
+step
+RESET
+
+# ---- counter mode ----------------------------------------------------------
+print TAG=counter-falling
+# Counter, falling edge, TC follows. TC 3: zero count on the third falling edge.
+SEL2
+WRITE 0x45
+# Edges before the time constant is loaded are not counted.
+PULSEF ClkTrg2
+WRITE 0x03
+CH 0x45 3 3 1 0 0 0 2
+PULSEF ClkTrg2
+expect reg.Ch2.Count = 2
+# A rising edge does not count.
+drive ClkTrg2 = H
+step
+CLK2
+expect reg.Ch2.Count = 2
+drive ClkTrg2 = L
+step
+CLK1
+expect reg.Ch2.Count = 1
+expect ZcTo2 = L
+# Clock edges alone never count.
+CLK16
+expect reg.Ch2.Count = 1
+# The count happens on the first rising clock edge after the trigger edge, not before it.
+drive ClkTrg2 = H
+step
+drive ClkTrg2 = L
+step
+expect reg.Ch2.Count = 1
+expect ZcTo2 = L
+RISE
+expect ZcTo2 = H
+expect reg.Ch2.Count = 3
+FALL
+expect ZcTo2 = L
+# A trigger edge in the same cycle as a clock edge is counted on the next clock edge.
+drive ClkTrg2 = H
+step
+drive ClkTrg2 = L
+drive CLK = H
+step 2
+expect reg.Ch2.Count = 3
+FALL
+expect reg.Ch2.Count = 3
+RISE
+expect reg.Ch2.Count = 2
+FALL
+RESET
+
+print TAG=counter-rising
+# Counter, rising edge, TC follows, TC 256 via 0.
+SEL1
+WRITE 0x55
+WRITE 0x00
+expect reg.Ch1.Count = 256
+READ 0x00
+PULSER ClkTrg1
+expect reg.Ch1.Count = 255
+expect ZcTo1 = L
+# 254 more edges leave 1; the 256th edge in total reaches zero.
+PULSER64 ClkTrg1
+PULSER64 ClkTrg1
+PULSER64 ClkTrg1
+PULSER16 ClkTrg1
+PULSER16 ClkTrg1
+PULSER16 ClkTrg1
+PULSER4 ClkTrg1
+PULSER4 ClkTrg1
+PULSER4 ClkTrg1
+PULSER ClkTrg1
+PULSER ClkTrg1
+expect reg.Ch1.Count = 1
+expect ZcTo1 = L
+drive ClkTrg1 = H
+step
+RISE
+expect ZcTo1 = H
+expect reg.Ch1.Count = 256
+FALL
+expect ZcTo1 = L
+drive ClkTrg1 = L
+step
+RESET
+
+# ---- stopping and reprogramming --------------------------------------------
+print TAG=reset-and-reload
+# Software reset stops a running channel and keeps the control bits.
+SEL0
+WRITE 0x05
+WRITE 0x03
+CLK16
+expect reg.Ch0.Count = 2
+WRITE 0x03
+CH 0x03 3 2 0 0 0 0 0
+CLK64
+expect reg.Ch0.Count = 2
+# Reset with TC-follows: runs again as soon as the time constant is loaded.
+WRITE 0x07
+CH 0x07 3 2 0 1 0 0 0
+WRITE 0x02
+CH 0x07 2 2 1 0 0 0 0
+CLK16
+expect reg.Ch0.Count = 1
+
+# New time constant on a running channel: the present count finishes first.
+WRITE 0x05
+WRITE 0x04
+expect reg.Ch0.TimeConstant = 4
+expect reg.Ch0.Count = 1
+CLK16
+expect reg.Ch0.Count = 4
+CLK16
+expect reg.Ch0.Count = 3
+# Control word without TC-follows on a stopped channel leaves it stopped.
+SEL1
+WRITE 0x03
+WRITE 0x01
+expect reg.Ch1.Running = 0
+CLK16
+expect reg.Ch1.Count = 0
+RESET
+
+# ---- interrupts ------------------------------------------------------------
+print TAG=interrupt-vector
+# Vector 0xA0 (bits 7-3 only). Channel 1: counter, falling edge, interrupt on zero count, TC 1.
+SEL0
+WRITE 0xA0
+SEL1
+WRITE 0xC5
+WRITE 0x01
+expect NotINT = F
+expect IEO = H
+PULSEF ClkTrg1
+expect NotINT = L
+expect IEO = L
+expect reg.Ch1.IntPending = 1
+# Acknowledge: vector = programmed bits 7-3, channel number in bits 2-1, bit 0 zero.
+INTA 0xA2
+expect NotINT = F
+expect IEO = L
+CH 0xC5 1 1 1 0 0 1 1
+# While in service the channel can count again but its request is held back.
+PULSEF ClkTrg1
+expect reg.Ch1.IntPending = 1
+expect NotINT = F
+expect IEO = L
+# RETI ends the service; the held request is now visible.
+RETI
+expect reg.Ch1.IntService = 0
+expect NotINT = L
+INTA 0xA2
+RETI
+expect NotINT = F
+expect IEO = H
+CH 0xC5 1 1 1 0 0 0 1
+RESET
+
+print TAG=interrupt-priority
+# Channels 1, 2, 3: counter, interrupt on zero count, TC 1. Vector 0xB8.
+SEL0
+WRITE 0xB8
+SEL1
+WRITE 0xC5
+WRITE 0x01
+SEL2
+WRITE 0xC5
+WRITE 0x01
+SEL3
+WRITE 0xC5
+WRITE 0x01
+expect IEO = H
+# Channel 3 interrupts and is acknowledged.
+PULSEF ClkTrg3
+expect NotINT = L
+INTA 0xBE
+expect IEO = L
+expect NotINT = F
+# Channel 1 (higher priority) interrupts the service of channel 3.
+PULSEF ClkTrg1
+expect NotINT = L
+INTA 0xBA
+expect reg.Ch1.IntService = 1
+expect reg.Ch3.IntService = 1
+# Channel 2 is lower than channel 1, which is in service: its request waits.
+PULSEF ClkTrg2
+expect reg.Ch2.IntPending = 1
+expect NotINT = F
+INTA F
+expect reg.Ch2.IntPending = 1
+expect reg.Ch2.IntService = 0
+# RETI ends the highest-priority service (channel 1). Channel 2 now outranks the one in service (3).
+RETI
+expect reg.Ch1.IntService = 0
+expect reg.Ch3.IntService = 1
+expect NotINT = L
+INTA 0xBC
+RETI
+expect reg.Ch2.IntService = 0
+expect reg.Ch3.IntService = 1
+expect IEO = L
+RETI
+expect reg.Ch3.IntService = 0
+expect IEO = H
+expect NotINT = F
+RESET
+
+print TAG=interrupt-simultaneous
+# Channels 0 and 2 both request: channel 0 is served first, then channel 2 after its RETI.
+SEL0
+WRITE 0xB8
+WRITE 0xC5
+WRITE 0x01
+SEL2
+WRITE 0xC5
+WRITE 0x01
+drive ClkTrg2 = H
+drive ClkTrg0 = H
+step
+drive ClkTrg2 = L
+drive ClkTrg0 = L
+step
+CLK1
+expect reg.Ch0.IntPending = 1
+expect reg.Ch2.IntPending = 1
+INTA 0xB8
+# Channel 2 waits behind the channel in service.
+expect NotINT = F
+RETI
+expect NotINT = L
+INTA 0xBC
+RETI
+expect IEO = H
+expect NotINT = F
+RESET
+
+print TAG=interrupt-daisy-chain
+SEL0
+WRITE 0x70
+WRITE 0xC5
+WRITE 0x01
+# IEI low: the CTC must not request, drive a vector or change state, and passes IEI on.
+drive IEI = L
+step
+PULSEF ClkTrg0
+expect reg.Ch0.IntPending = 1
+expect NotINT = F
+expect IEO = L
+INTA F
+expect reg.Ch0.IntPending = 1
+expect reg.Ch0.IntService = 0
+# IEI high again: the request goes out.
+drive IEI = H
+step
+expect NotINT = L
+INTA 0x70
+expect reg.Ch0.IntService = 1
+# RETI is only for the device whose IEI is high; with IEI low it is ignored.
+drive IEI = L
+step
+RETI
+expect reg.Ch0.IntService = 1
+drive IEI = H
+step
+# Not a RETI: ED 45 (RETN), ED then another opcode, bare 4D.
+FETCH 0xED
+FETCH 0x45
+expect reg.Ch0.IntService = 1
+FETCH 0xED
+FETCH 0x00
+FETCH 0x4D
+expect reg.Ch0.IntService = 1
+FETCH 0x4D
+expect reg.Ch0.IntService = 1
+RETI
+expect reg.Ch0.IntService = 0
+expect IEO = H
+RESET
+
+print TAG=interrupt-disable
+# Clearing the interrupt-enable bit withdraws a request nobody has acknowledged yet.
+SEL0
+WRITE 0xC5
+WRITE 0x01
+PULSEF ClkTrg0
+expect NotINT = L
+WRITE 0x41
+expect reg.Ch0.IntPending = 0
+expect NotINT = F
+expect IEO = H
+# A zero count without bit 7 requests nothing; the channel keeps counting.
+PULSEF ClkTrg0
+expect reg.Ch0.IntPending = 0
+expect NotINT = F
+expect IEO = H
+RESET
+
+print TAG=interrupt-timer
+# Timer mode zero count interrupts too. Channel 0, /16, TC 1, vector 0x20.
+SEL0
+WRITE 0x20
+WRITE 0x85
+WRITE 0x01
+CLK16
+expect NotINT = L
+expect ZcTo0 = L
+INTA 0x20
+RETI
+RESET
+
+# ---- hardware reset --------------------------------------------------------
+print TAG=hardware-reset
+SEL0
+WRITE 0x60
+WRITE 0x85
+WRITE 0x01
+CLK16
+INTA 0x60
+CLK16
+expect reg.Ch0.IntService = 1
+expect reg.Ch0.IntPending = 1
+drive NotRESET = L
+step
+# Reset drops every output and request; IEO follows IEI.
+CH 0x00 0 0 0 0 0 0 0
+expect NotINT = F
+expect IEO = H
+drive IEI = L
+step
+expect IEO = L
+drive IEI = H
+step
+drive NotRESET = H
+step
+# The channel stays stopped, and a counter does not run until reprogrammed.
+CLK64
+CH 0x00 0 0 0 0 0 0 0
+expect ZcTo0 = L
+# The vector register keeps its value.
+expect reg.Vector = 0x60
+# Reset during a time constant wait forgets it.
+WRITE 0x05
+drive NotRESET = L
+step
+drive NotRESET = H
+step
+# The next word is a control word again, not a time constant.
+WRITE 0x03
+expect reg.Ch0.TimeConstant = 0
+expect reg.Ch0.Running = 0
+expect reg.Ch0.Control = 0x03

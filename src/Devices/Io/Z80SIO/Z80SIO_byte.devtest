@@ -1,0 +1,431 @@
+# Z80SIO byte link (device link=loopback): every channel is byte-linked and what it transmits comes back
+# as received data, synchronously. Covers the character path, queueing, enables and interrupts; the
+# serial clocks and data pins are ignored on a linked channel.
+
+# ---- system clock ----------------------------------------------------------
+# One call = one clock phase. Outputs follow an edge one cycle later (stable write lag), hence `step 2`.
+# Every macro starts and ends with CLK low.
+def RISE
+  drive CLK = H
+  step 2
+end
+def FALL
+  drive CLK = L
+  step 2
+end
+def CLK1
+  RISE
+  FALL
+end
+
+# ---- Z80 I/O bus cycles ----------------------------------------------------
+def IDLE
+  drive NotCE = H
+  drive NotIORQ = H
+  drive NotRD = H
+  drive NotM1 = H
+  clear D
+  step
+end
+def SELAC
+  drive BNotA = L
+  drive CNotD = H
+end
+def SELAD
+  drive BNotA = L
+  drive CNotD = L
+end
+def SELBC
+  drive BNotA = H
+  drive CNotD = H
+end
+def SELBD
+  drive BNotA = H
+  drive CNotD = L
+end
+# I/O write to the port chosen by SELxx. $0 = data. The word is taken on the first rising edge.
+def WRITE
+  drive D = $0
+  drive NotCE = L
+  drive NotIORQ = L
+  step
+  RISE
+  FALL
+  IDLE
+end
+# I/O read. $0 = value the SIO must present (checked before and after the rising edge in the cycle).
+def READ
+  drive NotCE = L
+  drive NotIORQ = L
+  drive NotRD = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Interrupt acknowledge. $0 = vector the SIO must present, or F for none.
+def INTA
+  drive NotM1 = L
+  drive NotIORQ = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Opcode fetch of $0, then one more edge so the SIO decodes it.
+def FETCH
+  drive NotM1 = L
+  drive NotRD = L
+  drive D = $0
+  step
+  RISE
+  FALL
+  IDLE
+  CLK1
+end
+def RETI
+  FETCH 0xED
+  FETCH 0x4D
+end
+
+# Port accesses: W/R + C(ontrol)/D(ata) + A/B channel.
+def WCA
+  SELAC
+  WRITE $0
+end
+def WCB
+  SELBC
+  WRITE $0
+end
+def WDA
+  SELAD
+  WRITE $0
+end
+def WDB
+  SELBD
+  WRITE $0
+end
+def RCA
+  SELAC
+  READ $0
+end
+def RCB
+  SELBC
+  READ $0
+end
+def RDA
+  SELAD
+  READ $0
+end
+def RDB
+  SELBD
+  READ $0
+end
+# Write register $0 of a channel with $1 (pointer byte, then the value). Read register $0 expecting $1.
+def WRA
+  WCA $0
+  WCA $1
+end
+def WRB
+  WCB $0
+  WCB $1
+end
+def RRA
+  WCA $0
+  RCA $1
+end
+def RRB
+  WCB $0
+  RCB $1
+end
+
+# ---- serial clocks and data ------------------------------------------------
+# Transmit clock pulse; the transmitter moves on the falling edge.
+def TXA
+  drive TxCA = H
+  step
+  drive TxCA = L
+  step 2
+end
+def TXA4
+  TXA
+  TXA
+  TXA
+  TXA
+end
+def TXA16
+  TXA4
+  TXA4
+  TXA4
+  TXA4
+end
+
+
+def RXA
+  drive RxCA = H
+  step 2
+  drive RxCA = L
+  step 2
+end
+def RXA4
+  RXA
+  RXA
+  RXA
+  RXA
+end
+def RXA16
+  RXA4
+  RXA4
+  RXA4
+  RXA4
+end
+# Let the transfer happen: a write is taken on one rising edge, the character is sent and looped back on the next.
+def SETTLE
+  CLK1
+  CLK1
+end
+def RESET
+  drive NotRESET = L
+  step
+  drive NotRESET = H
+  step
+end
+
+device Z80SIO link=loopback
+drive CLK = L
+drive IEI = H
+drive NotRESET = H
+drive RxCA = L
+drive TxCA = L
+drive RxCB = L
+drive TxCB = L
+drive RxDA = H
+drive RxDB = H
+drive NotCTSA = H
+drive NotCTSB = H
+drive NotDCDA = H
+drive NotDCDB = H
+drive NotSYNCA = H
+drive NotSYNCB = H
+SELAC
+IDLE
+RESET
+
+
+# ---- character path ----------------------------------------------------------
+print TAG=byte-path
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x05 0x68
+expect reg.A.ByteLinked = 1
+expect reg.B.ByteLinked = 1
+WDA 0x41
+expect reg.A.RR0 = 0x40
+expect reg.A.RR1 = 0x00
+CLK1
+# Sent at once and received back on the same edge: buffer empty, all sent, character waiting.
+expect reg.A.RR0 = 0x45
+expect reg.A.RR1 = 0x01
+expect reg.A.RxCount = 1
+# The serial pin stays marking: no frame is made.
+expect TxDA = H
+RDA 0x41
+expect reg.A.RR0 = 0x44
+# Channels are independent.
+expect reg.B.RxCount = 0
+WRB 0x04 0x04
+WRB 0x03 0xC1
+WRB 0x05 0x68
+WDB 0x9C
+SETTLE
+expect reg.B.RxCount = 1
+expect reg.A.RxCount = 0
+RDB 0x9C
+# Serial clocks and RxD mean nothing to a linked channel.
+drive RxDA = L
+RXA16
+RXA16
+RXA16
+TXA16
+drive RxDA = H
+expect reg.A.RxCount = 0
+expect TxDA = H
+RESET
+
+# ---- character length ---------------------------------------------------------
+print TAG=byte-lengths
+WRA 0x04 0x04
+# 8 bits.
+WRA 0x03 0xC1
+WRA 0x05 0x68
+WDA 0xA5
+SETTLE
+RDA 0xA5
+# 7 bits each way: the eighth transmit bit is dropped, received characters get a fill one above.
+WRA 0x03 0x41
+WRA 0x05 0x28
+WDA 0x35
+SETTLE
+RDA 0xB5
+WDA 0xFF
+SETTLE
+RDA 0xFF
+# 6 bits.
+WRA 0x03 0x81
+WRA 0x05 0x48
+WDA 0x15
+SETTLE
+RDA 0xD5
+# 5 bits: transmit counts the leading ones of the byte (0xC6 = three bits 110); receive fills with ones.
+WRA 0x03 0x01
+WRA 0x05 0x08
+WDA 0xC6
+SETTLE
+RDA 0xE6
+WDA 0x15
+SETTLE
+RDA 0xF5
+RESET
+
+# ---- queueing -----------------------------------------------------------------
+print TAG=byte-queue
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x05 0x68
+# Nothing is lost when the CPU is slow: three in the FIFO, the rest wait in the host queue, in order.
+WDA 0x01
+SETTLE
+WDA 0x02
+SETTLE
+WDA 0x03
+SETTLE
+WDA 0x04
+SETTLE
+WDA 0x05
+SETTLE
+WDA 0x06
+SETTLE
+WDA 0x07
+SETTLE
+expect reg.A.RxCount = 3
+expect reg.A.HostQueued = 4
+expect reg.A.RR1 = 0x01
+RDA 0x01
+CLK1
+expect reg.A.RxCount = 3
+expect reg.A.HostQueued = 3
+RDA 0x02
+CLK1
+RDA 0x03
+CLK1
+RDA 0x04
+CLK1
+RDA 0x05
+CLK1
+RDA 0x06
+CLK1
+RDA 0x07
+expect reg.A.RxCount = 0
+expect reg.A.HostQueued = 0
+expect reg.A.RR1 = 0x01
+RESET
+
+# ---- enables ------------------------------------------------------------------
+print TAG=byte-enables
+WRA 0x04 0x04
+WRA 0x03 0xC1
+# Transmitter disabled: the character stays in the buffer.
+WRA 0x05 0x60
+WDA 0x11
+SETTLE
+SETTLE
+expect reg.A.RR0 = 0x40
+expect reg.A.RxCount = 0
+WRA 0x05 0x68
+SETTLE
+expect reg.A.RR0 = 0x45
+RDA 0x11
+# Receiver disabled: what arrives is discarded, not held for later.
+WRA 0x03 0xC0
+WDA 0x22
+SETTLE
+expect reg.A.RxCount = 0
+expect reg.A.HostQueued = 0
+WRA 0x03 0xC1
+SETTLE
+expect reg.A.RxCount = 0
+# Auto enables: CTS holds the transmitter and DCD gates the receiver.
+WRA 0x03 0xE1
+WDA 0x33
+SETTLE
+expect reg.A.RR0 = 0x40
+drive NotCTSA = L
+step 2
+SETTLE
+# Sent, but DCD is inactive so the receiver discarded it.
+expect reg.A.RR0 = 0x64
+expect reg.A.RxCount = 0
+drive NotDCDA = L
+step 2
+WDA 0x44
+SETTLE
+expect reg.A.RxCount = 1
+RDA 0x44
+drive NotCTSA = H
+drive NotDCDA = H
+step 2
+RESET
+# Synchronous modes (WR4 stop-bit field 00) are not served: nothing is sent or received.
+WRA 0x05 0x68
+WRA 0x03 0xC1
+WDA 0x55
+SETTLE
+expect reg.A.RR0 = 0x40
+expect reg.A.RxCount = 0
+RESET
+
+# ---- interrupts ---------------------------------------------------------------
+print TAG=byte-interrupts
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x05 0x68
+# Transmit interrupt: requested when the character leaves the buffer.
+WRA 0x01 0x02
+WDA 0x61
+expect NotINT = F
+CLK1
+expect NotINT = L
+INTA 0x4F
+RETI
+expect NotINT = F
+# Receive interrupt: requested when the character arrives (it is already waiting from above).
+WRA 0x01 0x10
+expect NotINT = L
+INTA 0x4F
+RDA 0x61
+RETI
+expect NotINT = F
+WDA 0x62
+SETTLE
+expect NotINT = L
+INTA 0x4F
+RDA 0x62
+RETI
+expect NotINT = F
+RESET
+
+# ---- RTS ----------------------------------------------------------------------
+print TAG=byte-rts
+WRA 0x04 0x04
+WRA 0x05 0x6A
+expect NotRTSA = L
+WRA 0x05 0x68
+expect NotRTSA = H
+RESET

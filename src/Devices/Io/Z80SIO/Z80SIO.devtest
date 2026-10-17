@@ -1,0 +1,1888 @@
+# Z80SIO: reset, register pointer, channel reset, asynchronous transmit and receive (lengths, parity,
+# stop bits, clock modes, break, FIFO), modem lines, interrupts (vector, priority, nesting, RETI,
+# daisy chain), Wait/Ready.
+
+# ---- system clock ----------------------------------------------------------
+# One call = one clock phase. Outputs follow an edge one cycle later (stable write lag), hence `step 2`.
+# Every macro starts and ends with CLK low.
+def RISE
+  drive CLK = H
+  step 2
+end
+def FALL
+  drive CLK = L
+  step 2
+end
+def CLK1
+  RISE
+  FALL
+end
+
+# ---- Z80 I/O bus cycles ----------------------------------------------------
+def IDLE
+  drive NotCE = H
+  drive NotIORQ = H
+  drive NotRD = H
+  drive NotM1 = H
+  clear D
+  step
+end
+def SELAC
+  drive BNotA = L
+  drive CNotD = H
+end
+def SELAD
+  drive BNotA = L
+  drive CNotD = L
+end
+def SELBC
+  drive BNotA = H
+  drive CNotD = H
+end
+def SELBD
+  drive BNotA = H
+  drive CNotD = L
+end
+# I/O write to the port chosen by SELxx. $0 = data. The word is taken on the first rising edge.
+def WRITE
+  drive D = $0
+  drive NotCE = L
+  drive NotIORQ = L
+  step
+  RISE
+  FALL
+  IDLE
+end
+# I/O read. $0 = value the SIO must present (checked before and after the rising edge in the cycle).
+def READ
+  drive NotCE = L
+  drive NotIORQ = L
+  drive NotRD = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Interrupt acknowledge. $0 = vector the SIO must present, or F for none.
+def INTA
+  drive NotM1 = L
+  drive NotIORQ = L
+  step
+  expect D = $0
+  RISE
+  expect D = $0
+  FALL
+  IDLE
+  expect D = F
+end
+# Opcode fetch of $0, then one more edge so the SIO decodes it.
+def FETCH
+  drive NotM1 = L
+  drive NotRD = L
+  drive D = $0
+  step
+  RISE
+  FALL
+  IDLE
+  CLK1
+end
+def RETI
+  FETCH 0xED
+  FETCH 0x4D
+end
+
+# Port accesses: W/R + C(ontrol)/D(ata) + A/B channel.
+def WCA
+  SELAC
+  WRITE $0
+end
+def WCB
+  SELBC
+  WRITE $0
+end
+def WDA
+  SELAD
+  WRITE $0
+end
+def WDB
+  SELBD
+  WRITE $0
+end
+def RCA
+  SELAC
+  READ $0
+end
+def RCB
+  SELBC
+  READ $0
+end
+def RDA
+  SELAD
+  READ $0
+end
+def RDB
+  SELBD
+  READ $0
+end
+# Write register $0 of a channel with $1 (pointer byte, then the value). Read register $0 expecting $1.
+def WRA
+  WCA $0
+  WCA $1
+end
+def WRB
+  WCB $0
+  WCB $1
+end
+def RRA
+  WCA $0
+  RCA $1
+end
+def RRB
+  WCB $0
+  RCB $1
+end
+
+# ---- serial clocks and data ------------------------------------------------
+# Transmit clock pulse; the transmitter moves on the falling edge.
+def TXA
+  drive TxCA = H
+  step
+  drive TxCA = L
+  step 2
+end
+def TXA4
+  TXA
+  TXA
+  TXA
+  TXA
+end
+def TXA16
+  TXA4
+  TXA4
+  TXA4
+  TXA4
+end
+def TXA15
+  TXA4
+  TXA4
+  TXA4
+  TXA
+  TXA
+  TXA
+end
+def TXA32
+  TXA16
+  TXA16
+end
+def TXA64
+  TXA32
+  TXA32
+end
+# One transmit clock, then TxD on channel A must be $0.
+def TXBITA
+  TXA
+  expect TxDA = $0
+end
+# Eight data bits, LSB first, then the stop bit.
+def TXBYTEA
+  TXBITA $0
+  TXBITA $1
+  TXBITA $2
+  TXBITA $3
+  TXBITA $4
+  TXBITA $5
+  TXBITA $6
+  TXBITA $7
+end
+def TXB
+  drive TxCB = H
+  step
+  drive TxCB = L
+  step 2
+end
+# Receive clock pulse; the receiver samples on the rising edge.
+def RXA
+  drive RxCA = H
+  step 2
+  drive RxCA = L
+  step 2
+end
+def RXA4
+  RXA
+  RXA
+  RXA
+  RXA
+end
+def RXA16
+  RXA4
+  RXA4
+  RXA4
+  RXA4
+end
+def RXB
+  drive RxCB = H
+  step 2
+  drive RxCB = L
+  step 2
+end
+def RXB4
+  RXB
+  RXB
+  RXB
+  RXB
+end
+def RXB16
+  RXB4
+  RXB4
+  RXB4
+  RXB4
+end
+# x1 receive: hold RxD at $0 for one clock.
+def X1A
+  drive RxDA = $0
+  RXA
+end
+# x1 8-bit 8N1 character on channel A, bits LSB first.
+def X1CHARA
+  X1A L
+  X1A $0
+  X1A $1
+  X1A $2
+  X1A $3
+  X1A $4
+  X1A $5
+  X1A $6
+  X1A $7
+  X1A H
+end
+# x16 receive: hold RxD at $0 for one bit time.
+def BITA
+  drive RxDA = $0
+  RXA16
+end
+def BITB
+  drive RxDB = $0
+  RXB16
+end
+# x16 8N1 character, bits LSB first.
+def CHARA
+  BITA L
+  BITA $0
+  BITA $1
+  BITA $2
+  BITA $3
+  BITA $4
+  BITA $5
+  BITA $6
+  BITA $7
+  BITA H
+end
+def CHARB
+  BITB L
+  BITB $0
+  BITB $1
+  BITB $2
+  BITB $3
+  BITB $4
+  BITB $5
+  BITB $6
+  BITB $7
+  BITB H
+end
+
+# x16 bit that is only right in the middle: wrong for 5 clocks, right for 6, wrong for 5.
+# $0 = the bit, $1 = its inverse.
+def NBITA
+  drive RxDA = $1
+  RXA4
+  RXA
+  drive RxDA = $0
+  RXA4
+  RXA
+  RXA
+  drive RxDA = $1
+  RXA4
+  RXA
+end
+def X1B
+  drive RxDB = $0
+  RXB
+end
+# Receive data: reads the data port and checks the result.
+# x1 characters with fixed data: 0x01 and 0x02 (8N1) on channel A, 0x01 on channel B.
+def RXA01
+  X1CHARA H L L L L L L L
+end
+def RXA02
+  X1CHARA L H L L L L L L
+end
+def RXB01
+  X1B L
+  X1B H
+  X1B L
+  X1B L
+  X1B L
+  X1B L
+  X1B L
+  X1B L
+  X1B L
+  X1B H
+end
+# Framing error on A: eight ones then a low stop bit (character 0xFF), then the line back high.
+def X1FRAMEA
+  X1A L
+  X1A H
+  X1A H
+  X1A H
+  X1A H
+  X1A H
+  X1A H
+  X1A H
+  X1A H
+  X1A L
+  X1A H
+  X1A H
+end
+# Even parity, character 0x01: the right parity bit is 1, the wrong one 0.
+def X1PARITYA
+  X1A L
+  X1A H
+  X1A L
+  X1A L
+  X1A L
+  X1A L
+  X1A L
+  X1A L
+  X1A L
+  X1A $0
+  X1A H
+end
+def RESET
+  drive NotRESET = L
+  step
+  drive NotRESET = H
+  step
+end
+
+device Z80SIO
+drive CLK = L
+drive IEI = H
+drive NotRESET = H
+drive RxCA = L
+drive TxCA = L
+drive RxCB = L
+drive TxCB = L
+drive RxDA = H
+drive RxDB = H
+drive NotCTSA = H
+drive NotCTSB = H
+drive NotDCDA = H
+drive NotDCDB = H
+drive NotSYNCA = H
+drive NotSYNCB = H
+SELAC
+IDLE
+RESET
+
+# ---- reset state -----------------------------------------------------------
+print TAG=reset
+expect NotINT = F
+expect IEO = H
+expect D = F
+expect TxDA = H
+expect TxDB = H
+expect NotRTSA = H
+expect NotRTSB = H
+expect NotDTRA = H
+expect NotDTRB = H
+expect WRdyA = F
+expect WRdyB = F
+# Transmit buffer empty and underrun latch set, no receive data, nothing pending; all sent.
+expect reg.A.RR0 = 0x44
+expect reg.B.RR0 = 0x44
+expect reg.A.RR1 = 0x01
+expect reg.B.RR1 = 0x01
+expect reg.A.Pointer = 0
+expect reg.B.Pointer = 0
+
+# ---- register pointer ------------------------------------------------------
+print TAG=pointer
+# WR0 with pointer bits 4: the next write goes to WR4, then the pointer is back at WR0.
+WCA 0x04
+expect reg.A.Pointer = 4
+WCA 0x04
+expect reg.A.WR4 = 0x04
+expect reg.A.Pointer = 0
+# Channels have separate registers.
+expect reg.B.WR4 = 0x00
+WRB 0x04 0x4C
+expect reg.B.WR4 = 0x4C
+expect reg.A.WR4 = 0x04
+# WR3, WR5, WR6, WR7 reachable on both channels.
+WRA 0x03 0xC1
+WRA 0x05 0x68
+WRA 0x06 0x5A
+WRA 0x07 0xA5
+expect reg.A.WR3 = 0xC1
+expect reg.A.WR5 = 0x68
+expect reg.A.WR6 = 0x5A
+expect reg.A.WR7 = 0xA5
+expect reg.B.WR3 = 0x00
+# WR2 exists in channel B only.
+WRA 0x02 0x70
+expect reg.Vector = 0x00
+WRB 0x02 0x70
+expect reg.Vector = 0x70
+# Reading RR1 through the pointer, then the pointer is back at RR0.
+RRA 0x01 0x01
+RCA 0x44
+# RR2 reads the vector in channel B; channel A has no RR2 and reads RR0.
+RRB 0x02 0x70
+RRA 0x02 0x44
+RCA 0x44
+# Two successive reads do not move the pointer by themselves.
+WCA 0x01
+SELAC
+drive NotCE = L
+drive NotIORQ = L
+drive NotRD = L
+step
+RISE
+FALL
+IDLE
+expect reg.A.Pointer = 0
+
+# ---- channel reset command -------------------------------------------------
+print TAG=channel-reset
+# Channel reset clears the channel's registers, leaves the other channel and WR2 alone, and the
+# pointer bits sent with the command take effect afterwards.
+WRA 0x01 0x12
+expect reg.A.WR1 = 0x12
+WCA 0x1B
+expect reg.A.WR1 = 0x00
+expect reg.A.WR3 = 0x00
+expect reg.A.WR4 = 0x00
+expect reg.A.WR5 = 0x00
+expect reg.A.WR6 = 0x00
+expect reg.A.WR7 = 0x00
+expect reg.A.Pointer = 3
+WCA 0xC1
+expect reg.A.WR3 = 0xC1
+WCA 0x18
+expect reg.A.Pointer = 0
+expect reg.B.WR4 = 0x4C
+expect reg.Vector = 0x70
+RESET
+expect reg.B.WR4 = 0x00
+expect reg.Vector = 0x70
+
+# ---- transmit, x1, 8 data bits, 1 stop bit ---------------------------------
+print TAG=tx-x1-8n1
+# WR4 first (x1, 1 stop bit, no parity), then 8 bits and the transmitter enable.
+WRA 0x04 0x04
+WRA 0x05 0x68
+WDA 0xA5
+# Nothing leaves before a transmit clock edge. The buffer is full and the transmitter not idle.
+expect TxDA = H
+expect reg.A.RR0 = 0x40
+expect reg.A.RR1 = 0x00
+TXBITA L
+# The character moved to the shift register: buffer empty again, but not all sent.
+expect reg.A.RR0 = 0x44
+expect reg.A.RR1 = 0x00
+# 0xA5 = 1010 0101, least significant bit first.
+TXBYTEA H L H L L H L H
+TXBITA H
+expect reg.A.RR1 = 0x00
+# The edge after the stop bit ends the frame.
+TXBITA H
+expect reg.A.RR1 = 0x01
+# Idle line stays marking.
+TXA
+TXA
+expect TxDA = H
+# Channel B was never started.
+expect TxDB = H
+
+# Back to back: a character written while another is in flight follows with no idle gap.
+WDA 0x01
+TXBITA L
+WDA 0xFE
+TXBYTEA H L L L L L L L
+TXBITA H
+expect reg.A.RR1 = 0x00
+# The stop bit is over on this edge; the buffered character starts at once.
+TXBITA L
+expect reg.A.RR0 = 0x44
+TXBYTEA L H H H H H H H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+
+# Disabled transmitter: the character waits in the buffer.
+WRA 0x05 0x60
+WDA 0x55
+TXA
+TXA
+expect TxDA = H
+expect reg.A.RR0 = 0x40
+# Enabling starts it on the next clock edge.
+WRA 0x05 0x68
+TXBITA L
+TXBYTEA H L H L H L H L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# Disabling during a frame lets that frame finish.
+WDA 0x80
+TXBITA L
+WRA 0x05 0x60
+TXBYTEA L L L L L L L H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+RESET
+
+# ---- transmit character lengths --------------------------------------------
+print TAG=tx-lengths
+WRA 0x04 0x04
+# 7 bits: the eighth bit of the written byte is ignored.
+WRA 0x05 0x28
+WDA 0xFF
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 6 bits.
+WRA 0x05 0x48
+WDA 0x3A
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 5 bits or fewer: leading ones in the byte give the count. 0x15 -> five bits 10101.
+WRA 0x05 0x08
+WDA 0x15
+TXBITA L
+TXBITA H
+TXBITA L
+TXBITA H
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 0x8A -> four bits 1010.
+WDA 0x8A
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 0xC6 -> three bits 110.
+WDA 0xC6
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 0xE2 -> two bits 10.
+WDA 0xE2
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# 0xF1 -> one bit 1; 0xF0 -> one bit 0.
+WDA 0xF1
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+WDA 0xF0
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+RESET
+
+# ---- transmit parity -------------------------------------------------------
+print TAG=tx-parity
+WRA 0x05 0x68
+# Even parity (WR4 D1 = 1): the parity bit makes the number of ones even.
+WRA 0x04 0x07
+WDA 0x01
+TXBITA L
+TXBYTEA H L L L L L L L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+WDA 0x03
+TXBITA L
+TXBYTEA H H L L L L L L
+TXBITA L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# Odd parity.
+WRA 0x04 0x05
+WDA 0x01
+TXBITA L
+TXBYTEA H L L L L L L L
+TXBITA L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+WDA 0x03
+TXBITA L
+TXBYTEA H H L L L L L L
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+# Seven bits with parity: the parity bit follows the seventh data bit.
+WRA 0x05 0x28
+WRA 0x04 0x07
+WDA 0x7E
+TXBITA L
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+WDA 0x7F
+TXBITA L
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+RESET
+
+# ---- transmit, x16, parity, 2 stop bits ------------------------------------
+print TAG=tx-x16
+# x16, 2 stop bits, parity enabled, even. 0x03 has two ones: parity bit 0. Each bit lasts 16 edges.
+WRA 0x04 0x4F
+WRA 0x05 0x68
+WDA 0x03
+TXA
+expect TxDA = L
+TXA15
+expect TxDA = L
+TXA
+expect TxDA = H
+TXA16
+TXA15
+expect TxDA = H
+TXA
+expect TxDA = L
+TXA64
+TXA16
+TXA15
+expect TxDA = L
+TXA16
+expect TxDA = L
+TXA
+expect TxDA = H
+TXA16
+TXA15
+expect TxDA = H
+expect reg.A.RR1 = 0x00
+TXA
+expect TxDA = H
+expect reg.A.RR1 = 0x01
+RESET
+
+# x64: a bit lasts 64 edges (WR4: x64, 1 stop bit).
+print TAG=tx-x64
+WRA 0x04 0xC4
+WRA 0x05 0x68
+WDA 0xFF
+TXA
+expect TxDA = L
+TXA32
+TXA16
+TXA15
+expect TxDA = L
+TXA
+expect TxDA = H
+RESET
+
+# 1.5 stop bits last 24 edges at x16 (WR4: x16, stop 10). The buffered second character
+# starts exactly when they are over.
+print TAG=tx-one-and-half-stop
+WRA 0x04 0x48
+WRA 0x05 0x68
+WDA 0x00
+TXA
+WDA 0x00
+TXA15
+expect TxDA = L
+TXA64
+TXA64
+expect TxDA = L
+TXA
+expect TxDA = H
+TXA16
+TXA4
+TXA
+TXA
+TXA
+expect TxDA = H
+TXA
+expect TxDA = L
+RESET
+
+# ---- break, RTS, DTR -------------------------------------------------------
+print TAG=tx-break
+WRA 0x04 0x04
+WRA 0x05 0x68
+# Send Break forces the line low at once, whatever the transmitter is doing, and releases to mark.
+WRA 0x05 0x78
+expect TxDA = L
+WRA 0x05 0x68
+expect TxDA = H
+WDA 0xFF
+TXBITA L
+WRA 0x05 0x78
+expect TxDA = L
+TXA
+expect TxDA = L
+WRA 0x05 0x68
+expect TxDA = H
+TXBYTEA H H H H H H H H
+TXBITA H
+TXBITA H
+RESET
+
+print TAG=rts-dtr
+WRA 0x04 0x04
+WRA 0x05 0x68
+expect NotRTSA = H
+expect NotDTRA = H
+# DTR follows its bit immediately.
+WRA 0x05 0xE8
+expect NotDTRA = L
+expect NotRTSA = H
+expect NotDTRB = H
+WRA 0x05 0x68
+expect NotDTRA = H
+# RTS follows its bit when the transmitter is idle.
+WRA 0x05 0x6A
+expect NotRTSA = L
+WRA 0x05 0x68
+expect NotRTSA = H
+# Clearing RTS during a character: the pin stays low until the transmitter is empty.
+WRA 0x05 0x6A
+WDA 0x00
+TXBITA L
+WRA 0x05 0x68
+expect NotRTSA = L
+TXBYTEA L L L L L L L L
+TXBITA H
+expect NotRTSA = L
+TXBITA H
+expect NotRTSA = H
+# A character still in the buffer, not yet started, keeps it low too.
+WRA 0x05 0x6A
+WDA 0x00
+WRA 0x05 0x68
+expect NotRTSA = L
+TXBITA L
+expect NotRTSA = L
+TXBYTEA L L L L L L L L
+TXBITA H
+TXBITA H
+expect NotRTSA = H
+RESET
+
+# ---- transmit auto enables (CTS) -------------------------------------------
+print TAG=tx-auto-enables
+WRA 0x04 0x04
+WRA 0x03 0x20
+WRA 0x05 0x68
+WDA 0x00
+# CTS inactive: the transmitter is held off.
+TXA
+TXA
+expect TxDA = H
+expect reg.A.RR0 = 0x40
+drive NotCTSA = L
+step 2
+# RR0 D5 = CTS input inverted, no interrupt (external interrupts disabled).
+expect reg.A.RR0 = 0x60
+expect NotINT = F
+TXBITA L
+TXBYTEA L L L L L L L L
+TXBITA H
+TXBITA H
+expect reg.A.RR1 = 0x01
+drive NotCTSA = H
+step 2
+RESET
+
+# ---- synchronous modes are not modeled -------------------------------------
+print TAG=tx-sync-inert
+# WR4 stop-bit field 00 selects the synchronous modes: the transmitter stays marking.
+WRA 0x04 0x00
+WRA 0x05 0x68
+WDA 0x00
+TXA
+TXA
+TXA
+expect TxDA = H
+expect reg.A.RR0 = 0x40
+RESET
+
+# ---- receive, x1, 8 data bits ----------------------------------------------
+print TAG=rx-x1-8n1
+WRA 0x04 0x04
+WRA 0x03 0xC1
+# 0xA5 = 1010 0101, least significant bit first. The character is complete on the stop-bit clock.
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A L
+X1A H
+X1A L
+X1A H
+expect reg.A.RxCount = 0
+expect reg.A.RR0 = 0x44
+X1A H
+expect reg.A.RxCount = 1
+expect reg.A.RR0 = 0x45
+# Reading the data port returns it and empties the buffer. RR1 reports no errors.
+expect reg.A.RR1 = 0x01
+RDA 0xA5
+expect reg.A.RxCount = 0
+expect reg.A.RR0 = 0x44
+# Reading an empty buffer returns 0.
+RDA 0x00
+# Idle line high: nothing happens however long it stays so.
+RXA
+RXA
+RXA
+expect reg.A.RxCount = 0
+# Channel B is independent.
+expect reg.B.RxCount = 0
+X1CHARA H H H H H H H H
+RDA 0xFF
+X1CHARA L L L L L L L L
+RDA 0x00
+# Receiver disabled: the line is ignored. Enabling it while the line is idle starts cleanly.
+WRA 0x03 0xC0
+X1CHARA H L H L H L H L
+expect reg.A.RxCount = 0
+WRA 0x03 0xC1
+X1CHARA H L H L H L H L
+RDA 0x55
+RESET
+
+# ---- receive, x16 ----------------------------------------------------------
+print TAG=rx-x16
+WRA 0x04 0x44
+WRA 0x03 0xC1
+# 0x3C = 0011 1100. Nothing is buffered until the stop bit has been sampled.
+CHARA L L H H H H L L
+expect reg.A.RxCount = 1
+RDA 0x3C
+# Each bit is sampled 8 clocks after the one before's sample plus half a bit: the stop bit on its
+# 9th clock, not before (the start bit was detected on the first clock the line was low).
+BITA L
+BITA H
+BITA L
+BITA H
+BITA L
+BITA H
+BITA L
+BITA H
+BITA L
+drive RxDA = H
+RXA4
+RXA4
+expect reg.A.RxCount = 0
+RXA
+expect reg.A.RxCount = 1
+RDA 0x55
+# A glitch shorter than half a bit is not a start bit.
+drive RxDA = L
+RXA4
+drive RxDA = H
+RXA16
+RXA16
+expect reg.A.RxCount = 0
+# Back-to-back characters with no idle bit between them.
+CHARA H L L L L L L L
+CHARA L H L L L L L L
+expect reg.A.RxCount = 2
+RDA 0x01
+RDA 0x02
+# Bits only correct in the middle of their bit time are still sampled correctly.
+BITA L
+NBITA H L
+NBITA L H
+NBITA L H
+NBITA H L
+NBITA H L
+NBITA L H
+NBITA H L
+NBITA L H
+BITA H
+expect reg.A.RxCount = 1
+RDA 0x59
+# Channel B: x32, 0xC3. Same sampling, rate 32 clocks per bit.
+RESET
+WRB 0x04 0x84
+WRB 0x03 0xC1
+def BIT32B
+  drive RxDB = $0
+  RXB16
+  RXB16
+end
+BIT32B L
+BIT32B H
+BIT32B H
+BIT32B L
+BIT32B L
+BIT32B L
+BIT32B L
+BIT32B H
+BIT32B H
+BIT32B H
+expect reg.B.RxCount = 1
+RDB 0xC3
+RESET
+
+# ---- receive, character lengths and parity ---------------------------------
+print TAG=rx-lengths
+WRA 0x04 0x04
+# 5 bits (WR3 D7:6 = 00): unused high bits read as ones. Data 10110b, sent LSB first.
+WRA 0x03 0x01
+X1A L
+X1A L
+X1A H
+X1A H
+X1A L
+X1A H
+X1A H
+RDA 0xF6
+# 6 bits (D7:6 = 10): 101101b.
+WRA 0x03 0x81
+X1A L
+X1A H
+X1A L
+X1A H
+X1A H
+X1A L
+X1A H
+X1A H
+RDA 0xED
+# 7 bits (D7:6 = 01): 1010101b.
+WRA 0x03 0x41
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A H
+RDA 0xD5
+# Even parity, 7 bits: the parity bit lands in bit 7 of the character. 0x55 has four ones: parity 0.
+WRA 0x04 0x07
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+expect reg.A.RR1 = 0x01
+RDA 0x55
+# Same data with parity bit 1 is a parity error and the bit shows in the character.
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A H
+X1A H
+expect reg.A.RR1 = 0x11
+RDA 0xD5
+# The parity error stays latched until Error Reset, and covers later good characters.
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+expect reg.A.RR1 = 0x11
+RDA 0x55
+WCA 0x30
+expect reg.A.RR1 = 0x01
+# Odd parity: 0x55 now needs parity bit 1.
+WRA 0x04 0x05
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+X1A H
+X1A H
+expect reg.A.RR1 = 0x01
+RDA 0xD5
+# 5 bits with even parity: data 10110b has three ones, parity bit 1 in bit 5, fill above.
+WRA 0x03 0x01
+WRA 0x04 0x07
+X1A L
+X1A L
+X1A H
+X1A H
+X1A L
+X1A H
+X1A H
+X1A H
+expect reg.A.RR1 = 0x01
+RDA 0xF6
+X1A L
+X1A L
+X1A H
+X1A H
+X1A L
+X1A H
+X1A L
+X1A H
+expect reg.A.RR1 = 0x11
+RDA 0xD6
+WCA 0x30
+# 8 bits with parity: the parity bit is checked but not part of the character.
+WRA 0x03 0xC1
+X1A L
+X1A H
+X1A H
+X1A H
+X1A H
+X1A H
+X1A H
+X1A H
+X1A H
+X1A L
+X1A H
+expect reg.A.RR1 = 0x01
+RDA 0xFF
+RESET
+
+# ---- receive errors and break ----------------------------------------------
+print TAG=rx-errors
+WRA 0x04 0x04
+WRA 0x03 0xC1
+# Framing error: a low stop bit flags that character only (RR1 D6, not latched).
+X1A L
+X1A H
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+expect reg.A.RR1 = 0x41
+expect reg.A.RR0 = 0x45
+# The receiver waits for the line to return high before looking for a start bit again.
+X1A L
+X1A L
+expect reg.A.RxCount = 1
+X1A H
+X1A H
+RDA 0x01
+# Framing is no longer reported once that character has been read.
+expect reg.A.RR1 = 0x01
+# A good character right after works.
+X1CHARA L H L L L L L L
+RDA 0x02
+# Break: a null character with a framing error. Detected once, however long the line stays low.
+expect reg.A.RR0 = 0x44
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+expect reg.A.RR0 = 0xC5
+expect reg.A.RxCount = 1
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+expect reg.A.RxCount = 1
+# The null character is in the FIFO with its framing error.
+expect reg.A.RR1 = 0x41
+# The line going high ends the break.
+X1A H
+expect reg.A.RR0 = 0x45
+RDA 0x00
+expect reg.A.RR1 = 0x01
+# Not a break: a non-null character with a low stop bit.
+X1A L
+X1A H
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+expect reg.A.RR0 = 0x45
+X1A H
+RDA 0x01
+RESET
+
+# ---- receive FIFO ----------------------------------------------------------
+print TAG=rx-fifo
+WRA 0x04 0x04
+WRA 0x03 0xC1
+X1CHARA H L L L L L L L
+X1CHARA L H L L L L L L
+X1CHARA H H L L L L L L
+expect reg.A.RxCount = 3
+expect reg.A.RR1 = 0x01
+# A fourth character replaces the third, which is flagged as overrun.
+X1CHARA L L H L L L L L
+expect reg.A.RxCount = 3
+expect reg.A.RR1 = 0x01
+RDA 0x01
+RDA 0x02
+# Now the overrun character is next: its error is visible before the data is read.
+expect reg.A.RR1 = 0x21
+RDA 0x04
+# Overrun stays latched until Error Reset.
+expect reg.A.RR0 = 0x44
+expect reg.A.RR1 = 0x21
+WCA 0x30
+expect reg.A.RR1 = 0x01
+# One read per strobe, however many clock edges it spans.
+X1CHARA H L L L L L L L
+X1CHARA L H L L L L L L
+SELAD
+drive NotCE = L
+drive NotIORQ = L
+drive NotRD = L
+step
+CLK1
+CLK1
+RISE
+FALL
+IDLE
+expect reg.A.RxCount = 1
+RDA 0x02
+RESET
+
+# ---- receive auto enables (DCD) --------------------------------------------
+print TAG=rx-auto-enables
+WRA 0x04 0x04
+WRA 0x03 0xE1
+# DCD inactive: receiver off.
+X1CHARA H L H L H L H L
+expect reg.A.RxCount = 0
+drive NotDCDA = L
+step 2
+# RR0 D3 = DCD input inverted.
+expect reg.A.RR0 = 0x4C
+X1CHARA H L H L H L H L
+RDA 0x55
+drive NotDCDA = H
+step 2
+RESET
+
+# ---- channel B receive -----------------------------------------------------
+print TAG=rx-channel-b
+WRB 0x04 0x44
+WRB 0x03 0xC1
+CHARB H L H L H L H L
+expect reg.B.RxCount = 1
+expect reg.A.RxCount = 0
+RDB 0x55
+RESET
+
+# ---- receive interrupts ----------------------------------------------------
+print TAG=int-rx-modes
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x03 0xC1
+# Receive interrupts disabled: a character raises nothing.
+RXA01
+expect NotINT = F
+expect reg.A.RR0 = 0x45
+RDA 0x01
+# Interrupt on all characters (WR1 D4:3 = 10): a character raises the request. IEO drops with it.
+WRA 0x01 0x10
+expect NotINT = F
+expect IEO = H
+RXA01
+expect NotINT = L
+expect IEO = L
+expect reg.A.RR0 = 0x47
+# Acknowledge: the fixed vector from WR2; the request moves to service, which holds NotINT off.
+INTA 0x4F
+expect NotINT = F
+expect IEO = L
+RDA 0x01
+RETI
+expect NotINT = F
+expect IEO = H
+# Two characters: the second raises a new request when service ends.
+RXA01
+RXA02
+INTA 0x4F
+RDA 0x01
+expect NotINT = F
+RETI
+expect NotINT = L
+INTA 0x4F
+RDA 0x02
+RETI
+expect NotINT = F
+expect IEO = H
+# Acknowledge with nothing to report puts nothing on the bus.
+INTA F
+
+# Interrupt on first character only (D4:3 = 01): later characters wait for command 4.
+WRA 0x01 0x00
+WRA 0x01 0x08
+RXA01
+expect NotINT = L
+INTA 0x4F
+RDA 0x01
+RETI
+RXA02
+expect NotINT = F
+# Enable Interrupt on Next Receive Character (command 4): the waiting character now interrupts.
+WCA 0x20
+expect NotINT = L
+INTA 0x4F
+RDA 0x02
+RETI
+expect NotINT = F
+# A special condition still interrupts in this mode, and holds the character until Error Reset.
+X1FRAMEA
+expect NotINT = L
+INTA 0x4F
+expect reg.A.RR1 = 0x41
+RDA 0xFF
+expect reg.A.RxCount = 1
+RDA 0xFF
+expect reg.A.RxCount = 1
+WCA 0x30
+expect reg.A.RR1 = 0x01
+RDA 0xFF
+expect reg.A.RxCount = 0
+RETI
+expect NotINT = F
+RESET
+
+# ---- status affects vector -------------------------------------------------
+print TAG=int-vectors
+# Channel B WR1 D2: V3:V1 of the vector become the source code. V7:V4 and V0 are as written.
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRB 0x04 0x04
+WRB 0x03 0xC1
+# Without it every source returns WR2 as written.
+WRA 0x01 0x10
+RXA01
+INTA 0x4F
+RDA 0x01
+RETI
+WRB 0x01 0x04
+expect reg.B.WR1 = 0x04
+# Channel A receive = 110: V3:V1 replaced, V7:V4 and V0 kept.
+RXA01
+INTA 0x4D
+RDA 0x01
+RETI
+# Mode 2: a parity error is a special receive condition. Channel A special = 111.
+WRA 0x04 0x07
+X1PARITYA L
+expect NotINT = L
+INTA 0x4F
+expect reg.A.RR1 = 0x11
+RDA 0x01
+RETI
+WCA 0x30
+# A good character is a plain receive.
+X1PARITYA H
+INTA 0x4D
+RDA 0x01
+RETI
+# Mode 3: a parity error does not change the vector (still flagged in RR1).
+WRA 0x01 0x18
+X1PARITYA L
+INTA 0x4D
+expect reg.A.RR1 = 0x11
+RDA 0x01
+RETI
+WCA 0x30
+# A framing error is special in either mode.
+WRA 0x04 0x04
+X1FRAMEA
+INTA 0x4F
+RDA 0xFF
+RETI
+# Channel B: receive = 010, special = 011.
+WRB 0x01 0x14
+RXB01
+INTA 0x45
+RDB 0x01
+RETI
+X1B L
+X1B H
+X1B H
+X1B H
+X1B H
+X1B H
+X1B H
+X1B H
+X1B H
+X1B L
+X1B H
+X1B H
+INTA 0x47
+RDB 0xFF
+RETI
+expect NotINT = F
+RESET
+
+# ---- transmit interrupt ----------------------------------------------------
+print TAG=int-tx
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x05 0x68
+# Enabling the interrupt with an empty buffer requests nothing.
+WRA 0x01 0x02
+expect NotINT = F
+# The request comes when the buffer empties: the character moves to the shift register.
+WDA 0x00
+expect NotINT = F
+TXA
+expect NotINT = L
+INTA 0x4F
+expect NotINT = F
+# The next character is taken after the current frame; its request waits for the end of service.
+WDA 0x00
+TXA4
+TXA4
+TXA
+TXA
+expect NotINT = F
+RETI
+expect NotINT = L
+INTA 0x4F
+RETI
+expect NotINT = F
+# Reset Transmitter Interrupt Pending (command 5) withdraws a request.
+TXA16
+WDA 0x00
+TXA
+expect NotINT = L
+WCA 0x28
+expect NotINT = F
+TXA16
+# Writing a character also withdraws it.
+WDA 0x00
+TXA
+expect NotINT = L
+WDA 0x00
+expect NotINT = F
+TXA16
+# Disabling the interrupt withdraws it.
+TXA16
+WDA 0x00
+TXA
+expect NotINT = L
+WRA 0x01 0x00
+expect NotINT = F
+RESET
+
+# ---- external/status interrupt ---------------------------------------------
+print TAG=int-external
+WRB 0x02 0x4F
+WRA 0x04 0x04
+# External interrupts disabled: pins are read live and nothing is requested.
+drive NotCTSA = L
+step 2
+expect NotINT = F
+expect reg.A.RR0 = 0x64
+drive NotCTSA = H
+step 2
+expect reg.A.RR0 = 0x44
+# Enabled: any transition requests, and the status is latched at the change.
+WRA 0x01 0x01
+drive NotCTSA = L
+step 2
+expect NotINT = L
+expect reg.A.RR0 = 0x66
+# Further changes while latched are not seen.
+drive NotDCDA = L
+step 2
+expect reg.A.RR0 = 0x66
+INTA 0x4F
+expect NotINT = F
+# Acknowledge ends the request but the latch holds until Reset External/Status (command 2).
+expect reg.A.RR0 = 0x64
+WCA 0x10
+expect reg.A.RR0 = 0x6C
+RETI
+expect NotINT = F
+# Armed again: the next transition requests, with the new state latched (DCD D3, CTS D5, SYNC D4).
+drive NotCTSA = H
+step 2
+expect NotINT = L
+expect reg.A.RR0 = 0x4E
+WCA 0x10
+expect NotINT = F
+expect reg.A.RR0 = 0x4C
+drive NotDCDA = H
+step 2
+expect NotINT = L
+WCA 0x10
+drive NotSYNCA = L
+step 2
+expect NotINT = L
+expect reg.A.RR0 = 0x56
+WCA 0x10
+drive NotSYNCA = H
+step 2
+expect NotINT = L
+WCA 0x10
+expect NotINT = F
+# A request withdrawn by the command before it was acknowledged: no vector.
+INTA F
+# Transmit Underrun/EOM latch: set by reset, cleared only by the CRC reset code 11.
+expect reg.A.RR0 = 0x44
+WCA 0xC0
+expect reg.A.RR0 = 0x04
+WCA 0xC0
+expect reg.A.RR0 = 0x04
+RESET
+
+print TAG=int-break
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x01 0x01
+# Break detection raises an external/status interrupt with RR0 D7 set.
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+X1A L
+expect NotINT = F
+X1A L
+expect NotINT = L
+expect reg.A.RR0 = 0xC7
+INTA 0x4F
+WCA 0x10
+RETI
+expect NotINT = F
+# More low bits change nothing; the end of the break is a second interrupt with D7 clear.
+X1A L
+X1A L
+expect NotINT = F
+X1A H
+expect NotINT = L
+expect reg.A.RR0 = 0x47
+INTA 0x4F
+WCA 0x10
+RETI
+expect NotINT = F
+RDA 0x00
+RESET
+
+# ---- priority, nesting, RETI, daisy chain ----------------------------------
+print TAG=int-priority
+# Priority: A receive, A transmit, A external, B receive, B transmit, B external.
+WRB 0x02 0x40
+WRA 0x04 0x04
+WRA 0x05 0x68
+WRA 0x03 0xC1
+WRA 0x01 0x13
+WRB 0x04 0x04
+WRB 0x05 0x68
+WRB 0x03 0xC1
+WRB 0x01 0x1F
+# Five requests at once: A external, B external, A transmit, B transmit, B receive.
+drive NotCTSA = L
+drive NotCTSB = L
+step 2
+WDA 0x00
+WDB 0x00
+TXA
+TXB
+RXB01
+expect NotINT = L
+# RR2 reads the vector for the highest pending request (A transmit = 100).
+RRB 0x02 0x48
+expect reg.A.RR0 = 0x66
+INTA 0x48
+# A transmit is in service: everything lower is held off.
+expect NotINT = F
+expect IEO = L
+RETI
+expect NotINT = L
+RRB 0x02 0x4A
+INTA 0x4A
+RETI
+RRB 0x02 0x44
+INTA 0x44
+RDB 0x01
+RETI
+RRB 0x02 0x40
+INTA 0x40
+RETI
+RRB 0x02 0x42
+INTA 0x42
+RETI
+# Nothing pending: RR2 carries V3:V1 = 011.
+RRB 0x02 0x46
+expect NotINT = F
+expect IEO = H
+RESET
+
+print TAG=int-nesting
+WRB 0x02 0x40
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x01 0x11
+WRB 0x04 0x04
+WRB 0x03 0xC1
+WRB 0x01 0x15
+# B receive in service; a higher-priority A receive can still interrupt it.
+RXB01
+INTA 0x44
+expect NotINT = F
+RXA01
+expect NotINT = L
+INTA 0x4C
+expect NotINT = F
+# RETI ends the highest-priority service (A), then B.
+RDA 0x01
+RETI
+expect NotINT = F
+RDB 0x01
+RETI
+expect IEO = H
+# A lower-priority request does not interrupt a higher one in service.
+RXA01
+INTA 0x4C
+RXB01
+expect NotINT = F
+RDA 0x01
+RETI
+expect NotINT = L
+INTA 0x44
+RDB 0x01
+RETI
+# WR0 command 7 in channel A ends service like RETI. Channel B ignores it.
+RXA01
+INTA 0x4C
+RDA 0x01
+WCB 0x38
+expect IEO = L
+WCA 0x38
+expect IEO = H
+# A different second opcode byte is not RETI: ED 45 (RETN).
+RXA01
+INTA 0x4C
+RDA 0x01
+FETCH 0xED
+FETCH 0x45
+expect IEO = L
+FETCH 0x4D
+expect IEO = L
+RETI
+expect IEO = H
+RESET
+
+print TAG=int-channel-reset
+# Channel B reset ends only B's services; channel A reset resets the whole priority logic.
+WRB 0x02 0x40
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x01 0x11
+WRB 0x04 0x04
+WRB 0x03 0xC1
+WRB 0x01 0x15
+RXB01
+INTA 0x44
+RDB 0x01
+RXA01
+INTA 0x4C
+RDA 0x01
+expect reg.InService = 0x09
+WCB 0x18
+expect reg.InService = 0x01
+expect reg.B.WR1 = 0x00
+expect reg.A.WR1 = 0x11
+RETI
+expect reg.InService = 0x00
+WRB 0x04 0x04
+WRB 0x03 0xC1
+WRB 0x01 0x15
+RXB01
+INTA 0x44
+RDB 0x01
+RXA01
+INTA 0x4C
+RDA 0x01
+expect reg.InService = 0x09
+WCA 0x18
+expect reg.InService = 0
+expect reg.A.WR1 = 0x00
+expect reg.Vector = 0x40
+expect IEO = H
+RESET
+
+print TAG=int-daisy-chain
+WRB 0x02 0x40
+WRA 0x04 0x04
+WRA 0x03 0xC1
+WRA 0x01 0x10
+expect IEO = H
+drive IEI = L
+step 2
+# IEI low: IEO low, no request, no vector, no change of state.
+expect IEO = L
+RXA01
+expect NotINT = F
+INTA F
+expect IEO = L
+# RETI is ignored while IEI is low.
+drive IEI = H
+step 2
+expect NotINT = L
+INTA 0x40
+RDA 0x01
+drive IEI = L
+step 2
+RETI
+drive IEI = H
+step 2
+expect IEO = L
+RETI
+expect IEO = H
+RESET
+
+# ---- Wait / Ready ----------------------------------------------------------
+print TAG=wait-ready
+WRA 0x04 0x04
+WRA 0x05 0x68
+WRA 0x03 0xC1
+# Disabled: floating (wait function) or high (ready function).
+expect WRdyA = F
+WRA 0x01 0x40
+expect WRdyA = H
+# Ready, transmit side: low while the buffer can take a character, high while it holds one.
+WRA 0x01 0xC0
+expect WRdyA = L
+WDA 0x00
+expect WRdyA = H
+TXA
+expect WRdyA = L
+# Any CPU transfer takes it inactive for the cycle.
+SELAC
+drive NotCE = L
+drive NotIORQ = L
+step
+expect WRdyA = H
+drive NotCE = H
+drive NotIORQ = H
+step
+expect WRdyA = L
+TXA16
+# Ready, receive side: low while a character is waiting.
+WRA 0x01 0xE0
+expect WRdyA = H
+RXA01
+expect WRdyA = L
+RDA 0x01
+expect WRdyA = H
+# Wait, receive: low during a data read of an empty buffer, floating otherwise.
+WRA 0x01 0xA0
+SELAD
+drive NotCE = L
+drive NotIORQ = L
+drive NotRD = L
+step
+expect WRdyA = L
+RISE
+FALL
+IDLE
+expect WRdyA = F
+RXA01
+SELAD
+drive NotCE = L
+drive NotIORQ = L
+drive NotRD = L
+step
+expect WRdyA = F
+RISE
+FALL
+IDLE
+# Wait, transmit: low during a data write while the buffer is full.
+WRA 0x01 0x80
+WDA 0x00
+SELAD
+drive D = 0x00
+drive NotCE = L
+drive NotIORQ = L
+step
+expect WRdyA = L
+RISE
+FALL
+IDLE
+expect WRdyA = F
+TXA16
+SELAD
+drive D = 0x00
+drive NotCE = L
+drive NotIORQ = L
+step
+expect WRdyA = F
+RISE
+FALL
+IDLE
+# The other channel's wait pin responds to a transfer on this channel's port.
+WRB 0x01 0xA0
+SELAD
+drive NotCE = L
+drive NotIORQ = L
+drive NotRD = L
+step
+expect WRdyB = L
+RISE
+FALL
+IDLE
+expect WRdyB = F
+RESET
+
+# ---- hardware reset --------------------------------------------------------
+print TAG=hardware-reset
+WRB 0x02 0x4F
+WRA 0x04 0x04
+WRA 0x05 0xEA
+WRA 0x03 0xC1
+WRA 0x01 0xD3
+WRB 0x04 0x04
+WRB 0x01 0x10
+WDA 0x00
+TXA
+RXA01
+RXB01
+drive NotCTSA = L
+step 2
+expect NotINT = L
+INTA 0x4F
+expect NotRTSA = L
+expect NotDTRA = L
+expect IEO = L
+drive NotRESET = L
+step
+# Everything stops at once: outputs inactive, registers cleared, WR2 kept.
+expect NotINT = F
+expect IEO = H
+expect TxDA = H
+expect NotRTSA = H
+expect NotDTRA = H
+expect WRdyA = F
+expect reg.A.WR1 = 0x00
+expect reg.A.WR4 = 0x00
+expect reg.A.WR5 = 0x00
+expect reg.A.RxCount = 0
+expect reg.B.RxCount = 0
+expect reg.InService = 0
+expect reg.Vector = 0x4F
+# IEO follows IEI while held in reset.
+drive IEI = L
+step 2
+expect IEO = L
+drive IEI = H
+step 2
+expect IEO = H
+drive NotRESET = H
+step
+expect reg.A.RR0 = 0x64
+expect reg.A.RR1 = 0x01
+expect NotINT = F
+RESET
