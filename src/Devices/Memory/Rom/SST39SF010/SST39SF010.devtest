@@ -1,0 +1,72 @@
+# Smoke test for SST39SF010: reads back its constructor-supplied contents across
+# the full 17-bit address range, returns 0xFF for unprogrammed bytes, releases
+# the data bus once deselected or output-disabled, ignores a write attempt (see
+# SST39SF010.md) and exposes its contents for inspection. See
+# src/Testing/DeviceHarness.md for the script grammar.
+device SST39SF010 contents=HI
+
+print TAG=rom-read-programmed-bytes
+drive NotCE = L
+drive NotOE = L
+drive NotWE = H
+drive A = 0x00000
+step
+expect D = 0x48
+drive A = 0x00001
+step
+expect D = 0x49
+
+print TAG=rom-read-unprogrammed-is-ff
+drive A = 0x0ffff
+step
+expect D = 0xff
+drive A = 0x10000
+step
+expect D = 0xff
+drive A = 0x1ffff
+step
+expect D = 0xff
+
+print TAG=rom-upper-half-is-a-separate-cell
+poke 0x10000 0x5a
+drive A = 0x10000
+step
+expect D = 0x5a
+drive A = 0x00000
+step
+expect D = 0x48
+
+print TAG=rom-deselect-releases-bus
+drive NotCE = H
+step
+expect D = F
+
+print TAG=rom-output-disable-releases-bus
+drive NotCE = L
+drive NotOE = H
+step
+expect D = F
+
+print TAG=rom-write-attempt-ignored
+drive NotOE = H
+drive NotWE = L
+drive A = 0x00000
+step
+drive NotWE = H
+drive NotOE = L
+step
+expect D = 0x48
+
+print TAG=rom-write-pulse-with-oe-low-is-not-a-read
+drive NotOE = L
+drive NotWE = L
+step
+expect D = F
+drive NotWE = H
+step
+expect D = 0x48
+
+print TAG=rom-inspection
+expect mem[0x00000] = 0x48
+expect mem[0x00001] = 0x49
+expect mem[0x1ffff] = 0xff
