@@ -1,0 +1,46 @@
+# MachineHarness regression test for Z80Retro: the board boots CP/M 2.2 from
+# the SD card. Nothing but the real boot flash (vendor/2063-Z80-cpm/boot) and the card image
+# built by `build-firmware.sh` is involved, so passing means the whole chain works through
+# the SD socket wiring (bit-banged SPI, MISO into the GP input buffer), the banked SRAM, the
+# SIO console init and CP/M's own startup:
+#   - the boot flash copies itself into SRAM, switches the flash off, initializes the card
+#     (CMD0, CMD8, ACMD41, CMD58), reads the MBR and loads 16 KiB from partition 1 to $C000;
+#   - the BIOS (loaded to $EA00) sets up the zero page: JP WBOOT, the BDOS entry, drive A;
+#   - the CCP (at $D400) logs in drive A, reading its whole directory from the card
+#     (blocks $20-$3F of the partition, i.e. card blocks $820-$83F), then waits for a key.
+# The console text itself is not visible to a script; check it by hand (see AGENTS.md).
+#
+# Run it with `ctest --test-dir build/<preset> -R machinetest.Z80Retro` (or the `check`
+# target). CMake builds the card image to <build dir>/rom/Z80Retro-cpm, and the test runs
+# from the build directory so the `rom=` path below resolves. About 12 s on a release build.
+
+machine Z80Retro rom=rom/Z80Retro-cpm
+
+# `ram` index is the SRAM's 19-bit address; the low half at boot shows bank 14 ($70000), and
+# the high half (always bank 15) is address + $70000 as well.
+def EXPECT_RAM           # $0 = SRAM address, $1 = expected value
+  expect ram[$0] = $1
+end
+
+run 18000000
+
+print SECTION=sd-card-was-initialized-and-read
+expect sd.Ready = 1             # ACMD41 completed
+expect sd.LastCmd = 0x11        # the last thing the card did was a single-block read (CMD17)...
+expect sd.LastArg = 0x83F       # ...of the directory's last block: the CCP finished logging in drive A
+expect sd.LastR1 = 0
+
+print SECTION=bios-zero-page
+EXPECT_RAM 0x70000 0xC3         # $0000: JP WBOOT ($EA03, the BIOS warm boot entry)
+EXPECT_RAM 0x70001 0x03
+EXPECT_RAM 0x70002 0xEA
+EXPECT_RAM 0x70004 0x00         # current drive A, user 0
+EXPECT_RAM 0x70005 0xC3         # $0005: JP to the BDOS entry ($DC06)
+EXPECT_RAM 0x70006 0x06
+EXPECT_RAM 0x70007 0xDC
+
+print SECTION=ccp-and-console
+EXPECT_RAM 0x7D400 0xC3         # CP/M's CCP at $D400, loaded from the card
+expect sio.A.WR3 = 0xC1         # the BIOS initialized the CON console: receiver on, 8 bits
+expect sio.A.WR5 = 0x68         # transmitter on, 8 bits
+expect cpu.IFF1 = 0             # CP/M polls the console, no interrupts

@@ -255,6 +255,7 @@ endif()
 #
 #   wiresim_add_machine(<Name> EXECUTABLE <target> HEADER <include path>
 #                        DEFAULT_VARIANT <variant> DIR <machine dir> [TEST <.machinetest>])
+#   (each firmware variant also gets a `run_<Name>_<variant>` target that builds and runs it)
 #   wiresim_add_firmware(<Name> VARIANT <variant> [ARGS <build-firmware.sh args>...]
 #                         [DEPENDS <file>...] [DEPENDS_DIRS <dir relative to machine>...])
 #
@@ -341,6 +342,15 @@ function(wiresim_add_firmware NAME)
     )
     add_custom_target(${NAME}_firmware_${ARG_VARIANT} DEPENDS ${STAMP})
     add_dependencies(${EXECUTABLE} ${NAME}_firmware_${ARG_VARIANT})
+
+    # `run_<Name>_<variant>`: builds, then runs the machine on this firmware in the terminal
+    # (CMake Tools: "CMake: Build Target"). The script keeps stdin open when it isn't a terminal.
+    add_custom_target(run_${NAME}_${ARG_VARIANT}
+        COMMAND ${CMAKE_SOURCE_DIR}/scripts/run-machine.sh $<TARGET_FILE:${EXECUTABLE}> --rom ${ROM_DIR}
+        DEPENDS ${EXECUTABLE}
+        USES_TERMINAL
+        VERBATIM
+    )
 endfunction()
 
 file(GLOB MACHINE_MANIFESTS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/Machines/*/machine.cmake")

@@ -52,7 +52,7 @@ For debugging, the `asm-test` skill runs a small 65C02 assembly program and read
 
 ### Option 1: VS Code with the dev container
 
-The dev container provides the full toolchain (clang, CMake, Ninja, Verilator, cc65, sjasmplus, SDL2, gdb) so nothing needs to be installed on the host.
+The dev container provides the full toolchain (clang, CMake, Ninja, Verilator, cc65, sjasmplus, z80asm, cpmtools, SDL2, gdb) so nothing needs to be installed on the host.
 
 Requirements on the host:
 

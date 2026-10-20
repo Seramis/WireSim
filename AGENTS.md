@@ -1,6 +1,6 @@
 # AGENTS.md: WireSim
 
-> **Scope:** this repo only. Stack: C++23, CMake, ca65, sjasmplus, Verilator.
+> **Scope:** this repo only. Stack: C++23, CMake, ca65, sjasmplus, z80asm, Verilator.
 
 ## What this is
 
@@ -10,11 +10,12 @@ WireSim: netlist-based, event-driven digital logic simulator, cycle-accurate dow
 - **`Devices`**: reusable, machine-agnostic hardware (CPUs, memory, peripherals), each doc'd next to its code.
 - **`Machines`**: concrete computers built from devices, glue logic and firmware.
 
-Three machines:
+Four machines:
 
 - **BenEater6502** (default one): Ben Eater's breadboard 6502 computer, runs Microsoft BASIC from vendored `msbasic` submodule. Has W65C22 VIA, W65C51N ACIA bridged to TCP, HD44780 LCD.
 - **My6502**: breadboard-style 6502 computer, 16C550 UART, 64 KiB SRAM, debug peripherals. Runs 6502 assembly (ca65/ld65) assembled to ROM images. Also home of assembly test workflow (`asm-test`, `sim-run.sh`).
 - **Z80Echo**: Z80 computer, 32 KiB AT28C256 ROM, 32 KiB SRAM, 16C550 UART bridged to TCP on I/O ports `$80-$87`. Firmware (Z80 assembly, sjasmplus) echoes every received byte.
+- **Z80Retro**: John Winans' Z80-Retro single board computer: Z80, 128 KiB flash shadowed over reset, 512 KiB banked SRAM, Z80 CTC, Z80 SIO bridged to two TCP consoles, SD card socket. Boots CP/M 2.2 from the SD card (vendored 2063-Z80-cpm, z80asm, cpmtools); its one firmware variant is `cpm`. Board manual vendored in `src/Machines/Z80Retro/docs/`.
 
 Performance: main goal here. Commit subjects show measured half-cycle rate (e.g. "3.94MHz"). Treat `src/Simulator/` and `Bus`/`Pin` paths as hot code.
 
@@ -45,13 +46,13 @@ Skills in `.claude/skills/`:
 | `src/Devices/<Category>/<Name>/` | Reusable hardware, one folder per device however many files it needs (e.g. `Memory/Sram/ParallelSram/`, `Serial/ST16C550/`, `Cpu/W65C02/`). Device folder can also hold its `.md` doc, `.harness.cpp` registration and `.devtest` script. Current categories: `Cpu`, `Debug`, `Graphics`, `Io`, `Memory`, `Panel`, `Register`, `Serial`. Add new category only when no existing one fits, name it for device's electrical role in one generic word (e.g. `Io`), not a product or protocol family. Category folder can also hold shared non-device code at its own level (e.g. `Serial/Terminal.hpp`). |
 | `src/Support/` | Cross-cutting helpers that ain't a `Sim::Device` and fit no single category (e.g. `SdlEventHub`, `SdlUiTestHooks`). Flat `<Name>.hpp(+.cpp)` plus colocated `.md`. |
 | `src/Testing/` | `DeviceHarness` and `MachineHarness`, separate CMake targets (not the machine binaries). Device opts in with colocated `<Name>.harness.cpp` and `<Name>.devtest`; machine with `<Machine>.machine-harness.cpp` and `<Machine>.machinetest`. Both shims excluded from machine builds. |
-| `src/Machines/<Machine>/` | `<Machine>.hpp` (wiring, ROM loading, run loop), `Chipset.hpp` (address decode), `machine.cmake`, `Firmware/`, `scripts/` and an `AGENTS.md` w/ machine facts. See [BenEater6502](src/Machines/BenEater6502/AGENTS.md), [My6502](src/Machines/My6502/AGENTS.md) and [Z80Echo](src/Machines/Z80Echo/AGENTS.md). |
+| `src/Machines/<Machine>/` | `<Machine>.hpp` (wiring, ROM loading, run loop), `Chipset.hpp` (address decode), `machine.cmake`, `Firmware/`, `scripts/` and an `AGENTS.md` w/ machine facts. See [BenEater6502](src/Machines/BenEater6502/AGENTS.md), [My6502](src/Machines/My6502/AGENTS.md), [Z80Echo](src/Machines/Z80Echo/AGENTS.md) and [Z80Retro](src/Machines/Z80Retro/AGENTS.md). |
 | `src/Main.cpp`, `CMakePresets.json` | `Main.cpp` is the one CLI entry point (`--cycles N`, `--variant NAME`, `--rom DIR`), compiled once per machine by `wiresim_add_machine()` cuz machine headers can't share a translation unit (`W65C02.hpp` has no include guard). `CMakePresets.json` defines `debug` and `release` presets (Ninja, clang, `build/<preset>`). |
 | `build/<preset>/` | Generated and git-ignored. Holds executables and each machine's assembled firmware under `rom/<Machine>-<variant>/`. |
 
 ## Build & run
 
-Toolchain: `clang++` (C++23), CMake ≥ 3.20, Ninja or Make, `verilator` (verilates every device under `src/Devices/**/*.f`), `ca65`/`ld65` (cc65), `sjasmplus` (Z80 firmware; not packaged for Fedora, dev container builds it from source), SDL2 dev headers and libs (for devices w/ SDL window; Fedora: `sdl2-compat-devel`) and optionally `socat` for `connect.sh`.
+Toolchain: `clang++` (C++23), CMake ≥ 3.20, Ninja or Make, `verilator` (verilates every device under `src/Devices/**/*.f`), `ca65`/`ld65` (cc65), `sjasmplus` (Z80 firmware; not packaged for Fedora, dev container builds it from source), `z80asm` and `cpmtools` (Z80Retro's firmware; both packaged for Fedora), SDL2 dev headers and libs (for devices w/ SDL window; Fedora: `sdl2-compat-devel`) and optionally `socat` for `connect.sh`.
 
 Everything builds thru CMake presets, firmware included:
 
@@ -62,6 +63,8 @@ cmake --build --preset debug --target check     # build, then ctest: every .devt
 build/debug/BenEater6502 --cycles 1000      # BenEater6502
 build/debug/WireSim --cycles 1000              # My6502
 ```
+
+Each firmware variant also has a `run_<Machine>_<variant>` target (`cmake --build --preset release --target run_Z80Retro_cpm`, or "CMake: Build Target" in VS Code) that builds and runs the machine in the terminal.
 
 Each machine executable takes `--variant NAME` (firmware built to `<exe dir>/rom/<Machine>-NAME`) or `--rom DIR`, runs from any dir. In VS Code, CMake Tools reads the presets: pick preset and launch target in status bar, use its Debug button (gdb, breakpoints in C++).
 
@@ -106,6 +109,7 @@ Details in [overview.md](overview.md).
 
 ## Agent workflow rules
 
+- **Kill only processes you started, by PID.** Capture it when launching (`cmd & PID=$!`, `sleep N > in.fifo & SP=$!`) and `kill "$PID"` that exact value. Never `pkill`/`killall`/`pgrep … | xargs kill` by name or pattern (`sleep`, `Z80Retro`, `bash`, …), never `kill -9 -1` or `kill 0`: in the dev container that can take down the container itself or unrelated processes, VS Code server included. If a PID is unknown, list candidates with `pgrep -a`, inspect them, and kill the one you recognise as yours. Prefer `timeout N cmd` so nothing needs killing. Same care for builds: cap parallelism (`-- -j2`) so heavy compiles don't exhaust container memory.
 - Don't compensate for CPU bug in chipset or memory device, or reverse. Fix the component that owns the behavior.
 - Never leave `Firmware/debug.asm`, `DEBUG_MODE` or temp tracing modified unless user asked for it. Use `src/Machines/My6502/scripts/sim-run.sh <file>` w/ scratch `.asm` file instead.
 - Don't infer bus timing from adjacent log lines. Correlate by `h=` counter, address, RWB and enables.

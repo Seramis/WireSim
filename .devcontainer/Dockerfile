@@ -8,6 +8,7 @@ RUN microdnf install -y \
         cmake ninja-build make \
         verilator \
         cc65 \
+        z80asm cpmtools \
         sdl2-compat-devel \
         mesa-libGL mesa-dri-drivers \
         libwayland-client libwayland-cursor libwayland-egl libxkbcommon libdecor \

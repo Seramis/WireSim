@@ -1,3 +1,9 @@
 [submodule "src/Machines/BenEater6502/vendor/msbasic"]
 	path = src/Machines/BenEater6502/vendor/msbasic
 	url = https://github.com/beneater/msbasic.git
+[submodule "src/Machines/Z80Retro/vendor/2063-Z80-cpm"]
+	path = src/Machines/Z80Retro/vendor/2063-Z80-cpm
+	url = https://github.com/Z80-Retro/2063-Z80-cpm.git
+[submodule "src/Machines/Z80Retro/docs"]
+	path = src/Machines/Z80Retro/docs
+	url = https://github.com/Z80-Retro/Z80-Retro-Manual.git
