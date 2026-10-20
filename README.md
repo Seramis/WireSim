@@ -24,7 +24,27 @@ Datasheets for the chips modelled here are in [docs/](docs/).
 
 ### Machines
 
-**BenEater6502** is a model of Ben Eater's breadboard 6502 computer. It runs Microsoft BASIC and WozMon from the vendored [msbasic](https://github.com/beneater/msbasic) submodule and has a W65C22 VIA, a W65C51N ACIA bridged to a TCP port as the serial console, an HD44780 LCD and 16 KiB of SRAM. Its memory map, wiring and quirks are described in [src/Machines/BenEater6502/AGENTS.md](src/Machines/BenEater6502/AGENTS.md).
+#### BenEater6502
+
+A model of Ben Eater's breadboard 6502 computer. It runs Microsoft BASIC and WozMon from the vendored [msbasic](https://github.com/beneater/msbasic) submodule and has a W65C22 VIA, a W65C51N ACIA bridged to a TCP port as the serial console, an HD44780 LCD and 16 KiB of SRAM. Its memory map, wiring and quirks are described in [src/Machines/BenEater6502/AGENTS.md](src/Machines/BenEater6502/AGENTS.md).
+
+Ben Eater builds this computer step by step, from a bare CPU to a working system, in his YouTube playlist: [Build a 6502 computer](https://www.youtube.com/watch?v=LnzuMJLZRdU&list=PLowKtXNTBypFbtuVMUVXNR0z1mu7dp7eH).
+
+![BenEater6502: the serial console running Microsoft BASIC, and the LCD window showing "Hello World!"](screenshot_beneater.png)
+
+#### Z80Retro
+
+A model of John Winans' Z80 Retro! single board computer. It has a Z80 CPU, 128 KiB of flash that is shadowed over reset, 512 KiB of banked SRAM, a Z80 CTC, a Z80 SIO whose two channels are bridged to TCP consoles, and an SD card socket. It boots CP/M 2.2 from the SD card, using John Winans' boot flash and BIOS from the vendored [2063-Z80-cpm](src/Machines/Z80Retro/vendor/2063-Z80-cpm) submodule. Its memory map, wiring and quirks are described in [src/Machines/Z80Retro/AGENTS.md](src/Machines/Z80Retro/AGENTS.md), and the board manual is in [src/Machines/Z80Retro/docs/](src/Machines/Z80Retro/docs/).
+
+John Winans builds this computer in his YouTube playlist: [Z80 Retro!](https://www.youtube.com/watch?v=oekucjDcNbA&list=PL3by7evD3F51Cf9QnsAEdgSQ4cz7HQZX5).
+
+![Z80Retro: the boot banner, the SD card partition table and a CP/M 2.2 directory listing](screenshot_z80retro.png)
+
+To try it, run `cmake --build --preset release --target run_Z80Retro_cpm` and connect to the console with `socat - TCP:localhost:20024`. CP/M's `a>` prompt appears after about 10 seconds on a release build.
+
+#### Thanks
+
+Huge thanks to Ben Eater and John Winans. Both designed these computers, documented them in detail and shared everything freely, which made it possible to rebuild them here in software. Their videos, schematics and firmware teach more about how computers work than any textbook, and this project would not exist without them.
 
 ### Experimental devices
 
@@ -125,8 +145,6 @@ This build of BASIC also has commands for the hardware on the board:
 - `LCDCMD n` sends a command byte to the LCD.
 - `LCDPRINT expr` prints to the LCD (press `d` in the simulator terminal first to see the LCD window).
 - `BEEP freq,duration` drives the piezo.
-
-![BenEater6502 serial console running Microsoft BASIC, and the LCD window showing "Hello World!"](screenshot.png)
 
 Backspace does not delete in the BASIC line editor, because the original firmware ignores it. Type `_` to delete the previous character instead.
 
