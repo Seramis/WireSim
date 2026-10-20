@@ -1,0 +1,624 @@
+# SdCard in SPI mode (mode 0, MSB first) backed by a file. Walks the SD SPI
+# protocol the way a host does: 80 clocks with /CS high, CMD0, CMD8, CMD55 +
+# ACMD41 polling, CMD58, then CSD/CID, single and multi-block read, single and
+# multi-block write (checked in the backing file), CRC mode, rejected
+# commands and /CS aborting a transfer. See SdCard.md and
+# src/Testing/DeviceHarness.md for the script grammar.
+#
+# One SPI clock = three cycles: SCLK rises (MISO is sampled here), SCLK falls,
+# one more cycle for the card's stable-phase MISO update to become visible.
+# MISO is only checked by BIT and RXB; CLK and TXB ignore it.
+
+def BIT                  # $0 = MOSI bit, $1 = expected MISO bit
+  drive MOSI = $0
+  drive SCLK = H
+  step
+  expect MISO = $1
+  drive SCLK = L
+  step
+  step
+end
+
+def CLK                  # $0 = MOSI bit, MISO not checked
+  drive MOSI = $0
+  drive SCLK = H
+  step
+  drive SCLK = L
+  step
+  step
+end
+
+def TXB                  # send one byte, MSB first, MISO ignored
+  CLK $0
+  CLK $1
+  CLK $2
+  CLK $3
+  CLK $4
+  CLK $5
+  CLK $6
+  CLK $7
+end
+
+def RXB                  # clock out one byte (MOSI high), expect it MSB first
+  BIT 1 $0
+  BIT 1 $1
+  BIT 1 $2
+  BIT 1 $3
+  BIT 1 $4
+  BIT 1 $5
+  BIT 1 $6
+  BIT 1 $7
+end
+
+def BYTES1               # $0 = MOSI bit held for one byte, MISO ignored
+  CLK $0
+  CLK $0
+  CLK $0
+  CLK $0
+  CLK $0
+  CLK $0
+  CLK $0
+  CLK $0
+end
+
+def BYTES8
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+end
+
+def BYTES64
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+end
+
+def SKIP_509             # 509 bytes, MOSI = $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES64 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES8 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+  BYTES1 $0
+end
+
+def SKIP_510             # 510 bytes, MOSI = $0
+  SKIP_509 $0
+  BYTES1 $0
+end
+
+def SKIP_511             # 511 bytes, MOSI = $0
+  SKIP_510 $0
+  BYTES1 $0
+end
+
+def SELECT
+  drive NotCS = L
+  step
+  step
+end
+
+def DESELECT
+  drive NotCS = H
+  step
+  step
+end
+
+def CMD0                 # GO_IDLE_STATE
+  TXB 0 1 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 1 0 0 1 0 1 0 1
+end
+
+def CMD8                 # SEND_IF_COND, 2.7-3.6 V, check pattern 0xAA
+  TXB 0 1 0 0 1 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 1
+  TXB 1 0 1 0 1 0 1 0
+  TXB 1 0 0 0 0 1 1 1
+end
+
+def CMD55                 # APP_CMD
+  TXB 0 1 1 1 0 1 1 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 1 1 0 0 1 0 1
+end
+
+def ACMD41                 # SD_SEND_OP_COND, HCS set
+  TXB 0 1 1 0 1 0 0 1
+  TXB 0 1 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 1 1 1 0 1 1 1
+end
+
+def CMD58                 # READ_OCR
+  TXB 0 1 1 1 1 0 1 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 1 1 1 1 1 1 0 1
+end
+
+def CMD59_ON                 # CRC_ON_OFF = on
+  TXB 0 1 1 1 1 0 1 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 1
+  TXB 1 0 0 0 0 0 1 1
+end
+
+def CMD59_OFF                 # CRC_ON_OFF = off
+  TXB 0 1 1 1 1 0 1 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 1 0 0 1 0 0 0 1
+end
+
+def CMD9                 # SEND_CSD
+  TXB 0 1 0 0 1 0 0 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 1 0 1 0 1 1 1 1
+end
+
+def CMD10                 # SEND_CID
+  TXB 0 1 0 0 1 0 1 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 1 1 0 1 1
+end
+
+def CMD12                 # STOP_TRANSMISSION
+  TXB 0 1 0 0 1 1 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 1 1 0 0 0 0 1
+end
+
+def CMD13                 # SEND_STATUS
+  TXB 0 1 0 0 1 1 0 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 1 1 0 1
+end
+
+def CMD1                 # SEND_OP_COND (MMC only)
+  TXB 0 1 0 0 0 0 0 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 1 1 1 1 1 0 0 1
+end
+
+def CMD17_BLK                 # $0 $1 = block number bits 1 and 0 (CRC byte unchecked unless CRC mode)
+  TXB 0 1 0 1 0 0 0 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 $0 $1
+  TXB 1 1 1 1 1 1 1 1
+end
+
+def CMD18_BLK                 # $0 $1 = block number bits 1 and 0 (CRC byte unchecked unless CRC mode)
+  TXB 0 1 0 1 0 0 1 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 $0 $1
+  TXB 1 1 1 1 1 1 1 1
+end
+
+def CMD24_BLK                 # $0 $1 = block number bits 1 and 0 (CRC byte unchecked unless CRC mode)
+  TXB 0 1 0 1 1 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 $0 $1
+  TXB 1 1 1 1 1 1 1 1
+end
+
+def CMD25_BLK                 # $0 $1 = block number bits 1 and 0 (CRC byte unchecked unless CRC mode)
+  TXB 0 1 0 1 1 0 0 1
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 0 0
+  TXB 0 0 0 0 0 0 $0 $1
+  TXB 1 1 1 1 1 1 1 1
+end
+
+def RX_FF
+  RXB 1 1 1 1 1 1 1 1
+end
+
+def RX_00
+  RXB 0 0 0 0 0 0 0 0
+end
+
+def RX_R1                # response gap (0xFF) then R1 = $0..$7
+  RX_FF
+  RXB $0 $1 $2 $3 $4 $5 $6 $7
+end
+
+device SdCard path=sdcard-test.img size=0x4000000 fresh=1
+
+print TAG=sd-deselected-miso-is-high-z
+drive NotCS = H
+drive SCLK = L
+drive MOSI = H
+step 2
+expect MISO = F
+print TAG=sd-reports-capacity-and-no-state-yet
+expect reg.Blocks = 131072
+expect reg.Ready = 0
+expect mem[0x0] = 0x00
+poke 0x400 0xA5
+poke 0x401 0x5A
+poke 0x5FF 0x81
+poke 0x200 0x11
+poke 0x7FF 0xFF
+expect mem[0x400] = 0xA5
+print TAG=sd-clocks-while-deselected-are-ignored
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+expect MISO = F
+print TAG=sd-selected-idle-miso-is-high
+SELECT
+expect MISO = H
+print TAG=sd-cmd0-enters-idle
+CMD0
+RX_R1 0 0 0 0 0 0 0 1
+expect reg.LastCmd = 0
+expect reg.Ready = 0
+expect reg.LastR1 = 0x01
+print TAG=sd-cmd8-echoes-voltage-and-pattern
+CMD8
+RX_R1 0 0 0 0 0 0 0 1
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 1
+RXB 1 0 1 0 1 0 1 0
+print TAG=sd-read-write-commands-illegal-while-idle
+CMD17_BLK 0 0
+RX_R1 0 0 0 0 0 1 0 1
+CMD24_BLK 0 0
+RX_R1 0 0 0 0 0 1 0 1
+print TAG=sd-unknown-command-illegal
+CMD1
+RX_R1 0 0 0 0 0 1 0 1
+print TAG=sd-acmd41-first-poll-idle-then-ready
+CMD55
+RX_R1 0 0 0 0 0 0 0 1
+ACMD41
+RX_R1 0 0 0 0 0 0 0 1
+expect reg.Ready = 0
+CMD55
+RX_R1 0 0 0 0 0 0 0 1
+ACMD41
+RX_R1 0 0 0 0 0 0 0 0
+expect reg.Ready = 1
+expect reg.LastCmd = 41
+expect reg.LastArg = 0x40000000
+print TAG=sd-acmd41-without-cmd55-illegal
+ACMD41
+RX_R1 0 0 0 0 0 1 0 0
+print TAG=sd-cmd58-ocr-reports-ready-and-sdhc
+CMD58
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 1
+RXB 1 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+print TAG=sd-cmd13-status
+CMD13
+RX_R1 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+print TAG=sd-cmd9-csd-v2-with-capacity
+CMD9
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 0 1 0 0 0 0 0 0
+RXB 0 0 0 0 1 1 1 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 1 1 0 0 1 0
+RXB 0 1 0 1 1 0 1 1
+RXB 0 1 0 1 1 0 0 1
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 1 1 1 1 1 1 1
+RXB 0 1 1 1 1 1 1 1
+RXB 1 0 0 0 0 0 0 0
+RXB 0 0 0 0 1 0 1 0
+RXB 0 1 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 1 0 1 0 0 0 1
+RXB 1 1 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 1
+RX_FF
+print TAG=sd-cmd10-cid
+CMD10
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 1 0 1 0 1 1 1
+RXB 0 1 0 1 0 0 1 1
+RXB 0 1 0 1 0 1 1 1
+RXB 0 1 0 1 0 0 1 1
+RXB 0 1 0 0 1 0 0 1
+RXB 0 1 0 0 1 1 0 1
+RXB 0 0 1 1 0 0 0 0
+RXB 0 0 0 1 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 0
+RXB 0 0 0 0 0 0 0 1
+RXB 0 0 0 0 0 0 0 1
+RXB 1 0 0 1 0 0 0 1
+RXB 0 0 1 1 1 1 0 1
+RXB 1 0 0 1 0 1 0 1
+RXB 0 0 1 1 1 0 0 1
+print TAG=sd-single-block-read
+CMD17_BLK 1 0
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 1 0 1 0 0 1 0 1
+RXB 0 1 0 1 1 0 1 0
+SKIP_509 1
+RXB 1 0 0 0 0 0 0 1
+RXB 0 1 1 1 0 1 0 0
+RXB 1 1 1 1 0 0 0 0
+RX_FF
+print TAG=sd-read-of-last-block-ok-and-past-end-is-parameter-error
+TXB 0 1 0 1 0 0 0 1
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 1
+TXB 1 1 1 1 1 1 1 1
+TXB 1 1 1 1 1 1 1 1
+TXB 1 1 1 1 1 1 1 1
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+SKIP_511 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+TXB 0 1 0 1 0 0 0 1
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 1 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 1
+RX_R1 0 1 0 0 0 0 0 0
+RX_FF
+print TAG=sd-multi-block-read-and-cmd12
+CMD18_BLK 0 1
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 0 0 0 1 0 0 0 1
+SKIP_511 1
+RXB 1 0 1 0 0 0 0 1
+RXB 1 0 1 0 1 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 1 0 1 0 0 1 0 1
+RXB 0 1 0 1 1 0 1 0
+SKIP_509 1
+RXB 1 0 0 0 0 0 0 1
+RXB 0 1 1 1 0 1 0 0
+RXB 1 1 1 1 0 0 0 0
+CMD12
+RX_R1 0 0 0 0 0 0 0 0
+RX_00
+RX_00
+RX_FF
+print TAG=sd-cmd12-outside-a-stream-is-illegal
+CMD12
+RX_R1 0 0 0 0 0 1 0 0
+print TAG=sd-single-block-write-reaches-file
+CMD24_BLK 1 1
+RX_R1 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 0
+TXB 1 1 0 1 1 1 1 0
+TXB 1 0 1 0 1 1 0 1
+SKIP_510 0
+BYTES1 0
+BYTES1 0
+RXB 0 0 0 0 0 1 0 1
+RX_00
+RX_00
+RX_FF
+expect mem[0x600] = 0xDE
+expect mem[0x601] = 0xAD
+expect mem[0x602] = 0x00
+expect mem[0x7FF] = 0x00
+expect mem[0x5FF] = 0x81
+expect mem[0x800] = 0x00
+print TAG=sd-write-then-read-back-block
+CMD17_BLK 1 1
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 1 1 0 1 1 1 1 0
+RXB 1 0 1 0 1 1 0 1
+print TAG=sd-multi-block-write
+DESELECT
+SELECT
+CMD25_BLK 0 0
+RX_R1 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 0 0
+TXB 0 1 1 1 0 1 1 1
+SKIP_511 0
+BYTES1 0
+BYTES1 0
+RXB 0 0 0 0 0 1 0 1
+RX_00
+RX_00
+TXB 1 1 1 1 1 1 0 0
+TXB 1 0 0 0 1 0 0 0
+SKIP_511 0
+BYTES1 0
+BYTES1 0
+RXB 0 0 0 0 0 1 0 1
+RX_00
+RX_00
+TXB 1 1 1 1 1 1 0 1
+RX_00
+RX_00
+RX_FF
+expect mem[0x0] = 0x77
+expect mem[0x200] = 0x88
+expect mem[0x400] = 0xA5
+print TAG=sd-write-past-end-is-parameter-error
+TXB 0 1 0 1 1 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 1 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 1
+RX_R1 0 1 0 0 0 0 0 0
+print TAG=sd-deselect-aborts-read-transfer
+CMD17_BLK 1 0
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+RXB 1 0 1 0 0 1 0 1
+DESELECT
+expect MISO = F
+SELECT
+expect MISO = H
+RX_FF
+RX_FF
+print TAG=sd-crc-mode-checks-command-crc
+CMD59_ON
+RX_R1 0 0 0 0 0 0 0 0
+expect reg.CrcOn = 1
+TXB 0 1 0 1 0 0 0 1
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 1 0 1 0 1 0 1
+RX_R1 0 0 0 0 0 0 0 0
+RXB 1 1 1 1 1 1 1 0
+SKIP_511 1
+BYTES1 1
+BYTES1 1
+BYTES1 1
+TXB 0 1 0 1 0 0 0 1
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 1
+RX_R1 0 0 0 0 1 0 0 0
+RX_FF
+print TAG=sd-crc-mode-checks-data-crc
+TXB 0 1 0 1 1 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 1 1
+TXB 0 1 0 1 1 0 0 1
+RX_R1 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 0
+TXB 0 1 0 0 0 0 1 0
+SKIP_511 0
+BYTES1 1
+BYTES1 1
+RXB 0 0 0 0 1 0 1 1
+RX_00
+RX_00
+RX_FF
+expect mem[0x600] = 0xDE
+print TAG=sd-crc-mode-accepts-good-data-crc
+TXB 0 1 0 1 1 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 1 1
+TXB 0 1 0 1 1 0 0 1
+RX_R1 0 0 0 0 0 0 0 0
+TXB 1 1 1 1 1 1 1 0
+TXB 0 1 0 0 0 0 1 0
+SKIP_511 0
+TXB 1 0 1 0 1 0 0 1
+TXB 0 1 0 0 0 0 0 1
+RXB 0 0 0 0 0 1 0 1
+RX_00
+RX_00
+RX_FF
+expect mem[0x600] = 0x42
+expect mem[0x601] = 0x00
+print TAG=sd-crc-mode-off-again
+CMD59_OFF
+RX_R1 0 0 0 0 0 0 0 0
+expect reg.CrcOn = 0
+print TAG=sd-cmd0-resets-card-and-crc-mode
+CMD59_ON
+RX_R1 0 0 0 0 0 0 0 0
+CMD0
+RX_R1 0 0 0 0 0 0 0 1
+expect reg.Ready = 0
+expect reg.CrcOn = 0
+CMD17_BLK 0 0
+RX_R1 0 0 0 0 0 1 0 1
+print TAG=sd-cmd0-with-bad-crc-rejected
+TXB 0 1 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 0
+TXB 0 0 0 0 0 0 0 1
+RX_R1 0 0 0 0 1 0 0 1
+print TAG=sd-deselect-releases-miso
+DESELECT
+expect MISO = F
