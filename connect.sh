@@ -46,7 +46,8 @@ while true; do
     # raw,echo=0 passes every key through, Ctrl+C included (0x03 stops MS BASIC).
     # icrnl turns Enter (CR) into LF, the line ending the simulated machines expect.
     # escape=0x04 (Ctrl+D) exits the current socat session.
-    socat STDIO,raw,echo=0,icrnl,escape=0x04 TCP:localhost:"$PORT" 2>/dev/null
+    # Bound connection attempts without disconnecting an idle, established session.
+    socat STDIO,raw,echo=0,icrnl,escape=0x04 TCP:localhost:"$PORT",connect-timeout=1 2>/dev/null
     exit_code=$?
 
     # socat returns exit code 0 when connected and closed normally.
