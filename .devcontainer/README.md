@@ -28,4 +28,6 @@ Drop `--device=/dev/dri` from `runArgs`, set `LIBGL_ALWAYS_SOFTWARE=1` in `conta
 
 ## GitHub credentials
 
-Host have no git credential helper (and no `gh`); GitHub login live in VS Code own account sign-in. `.vscode/settings.json` set `dev.containers.gitCredentialHelperConfigLocation` to `none`, so Dev Containers extension stop install its helper (which forward to host `git credential fill`, find nothing, prompt for password). Git then fall through to VS Code `GIT_ASKPASS`, which answer with signed-in GitHub account token (`github.gitAuthentication`) -- for Source Control UI and for `git` run in VS Code integrated terminal (`git.terminalAuthentication`). `git` run outside VS Code terminal (e.g. `podman exec`) have no askpass, will not authenticate over HTTPS.
+GitHub CLI supplies credentials for HTTPS Git operations, including commands run outside VS Code terminals. After rebuilding the container, run `gh auth login --hostname github.com --git-protocol https --web` and complete the browser sign-in. Choose to authenticate Git when prompted. The container configures Git to use GitHub CLI on startup.
+
+GitHub CLI configuration and credentials persist across container rebuilds in the `wiresim-gh-config` Podman volume. GitHub CLI uses a system credential store when available and otherwise stores the token in plaintext in that volume. Treat access to the volume as access to the GitHub account.

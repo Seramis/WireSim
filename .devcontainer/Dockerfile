@@ -13,7 +13,7 @@ RUN microdnf install -y \
         mesa-libGL mesa-dri-drivers \
         libwayland-client libwayland-cursor libwayland-egl libxkbcommon libdecor \
         libX11 libXext libXrandr libXcursor libXi libXfixes libXrender \
-        git gdb socat pkgconf-pkg-config sudo which findutils shadow-utils \
+        git gh gdb socat pkgconf-pkg-config sudo which findutils shadow-utils \
         tar gzip xz \
         pdftotext valgrind strace file procps-ng \
         nodejs npm \
@@ -51,8 +51,8 @@ ARG USER_GID=1000
 # the real host UID is onto this one, so they must match).
 RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} \
-    && mkdir -p /home/${USERNAME}/.copilot \
-    && chown ${USER_UID}:${USER_GID} /home/${USERNAME}/.copilot \
+    && mkdir -p /home/${USERNAME}/.copilot /home/${USERNAME}/.config/gh \
+    && chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.copilot /home/${USERNAME}/.config \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 

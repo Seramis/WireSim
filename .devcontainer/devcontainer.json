@@ -28,6 +28,7 @@
         "--security-opt=label=disable",
         "--device=/dev/dri"
     ],
+    "postStartCommand": "gh auth setup-git --hostname github.com --force",
     // Bind the host's live Wayland socket and XWayland fallback socket
     // directory in at identical paths, so WAYLAND_DISPLAY/DISPLAY resolve
     // the same way inside the container as outside it.
@@ -35,6 +36,7 @@
     "mounts": [
         "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind",
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+        "source=wiresim-gh-config,target=/home/dev/.config/gh,type=volume",
         "source=${localEnv:HOME}/.copilot/copilot-instructions.md,target=/home/dev/.copilot/copilot-instructions.md,type=bind,readonly",
         "source=${localEnv:HOME}/.copilot/instructions,target=/home/dev/.copilot/instructions,type=bind,readonly"
     ],
