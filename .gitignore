@@ -22,8 +22,5 @@
 .idea/
 .DS_Store
 *.swp
-# --- Agent tooling (local, per-user) ---
-.claude/settings.local.json
-
 # --- Project logs ---
 debug_writer.log

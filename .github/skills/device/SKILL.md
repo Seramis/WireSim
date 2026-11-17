@@ -193,7 +193,7 @@ Reproduce, isolate, fix, verify:
 
 Don't infer timing from neighbouring output. Correlate by step number and elapsed time (`[s=N t=M]`), pin values driven and expected at that step, device's own select and strobe pins. `t=` (real ms since run phase began) diverges from cycle count only near `sleep` or device's own background thread; that's where real-time race shows.
 
-Long session: delegate to `.claude/agents/device-debugger.md`. Symptom needs real `Chipset` or firmware to appear: belongs to `.claude/agents/machine-wiring-debugger.md`.
+Long device session: use [.github/agents/device-debugger.agent.md](../../agents/device-debugger.agent.md). A symptom that needs real `Chipset` wiring or firmware belongs to [.github/agents/machine-wiring-debugger.agent.md](../../agents/machine-wiring-debugger.agent.md).
 
 ## Machines are a separate concern
 

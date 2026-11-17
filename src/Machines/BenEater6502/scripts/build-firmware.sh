@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds a BenEater6502 ROM directory from the vendored msbasic submodule --
 # the toolchain-agnostic half of the firmware-build contract (see
-# .claude/skills/machine-engineer): isolate a private copy of the sources,
+# .github/skills/machine-engineer): isolate a private copy of the sources,
 # then hand off to the toolchain-specific build (Firmware/build.sh, ca65/ld65).
 # Never touches rom/ or the submodule checkout. This machine runs the vendored
 # firmware unmodified, so unlike My6502 there is no swappable scratch entry file;

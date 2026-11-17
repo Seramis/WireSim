@@ -263,7 +263,7 @@ device Rom contents=@firmware.bin size=32768
 
 ## CPU devices
 
-CPU needs no special support: script drives its clock, reset, interrupt, data pins, expects its address and control pins, reads registers via `dumpregs` / `expect reg.*`. Define one macro per bus-cycle kind (see [Macros](#macros)), write program as list of calls. Method in `.claude/skills/device-harness/bus-master.md` and `device` skill (`cpu.md`); worked example `src/Devices/Cpu/W65C02/W65C02_lda_sta.devtest`.
+CPU needs no special support: script drives its clock, reset, interrupt, data pins, expects its address and control pins, reads registers via `dumpregs` / `expect reg.*`. Define one macro per bus-cycle kind (see [Macros](#macros)), write program as list of calls. Method in [bus-master.md](../../.github/skills/device-harness/bus-master.md) and device skill (`cpu.md`); worked example `src/Devices/Cpu/W65C02/W65C02_lda_sta.devtest`.
 
 ## Where this fits
 

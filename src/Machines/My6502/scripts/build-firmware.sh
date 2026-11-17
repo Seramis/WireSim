@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a My6502 ROM directory from Firmware/ -- the toolchain-agnostic half
-# of the firmware-build contract (see .claude/skills/machine-engineer):
+# of the firmware-build contract (see .github/skills/machine-engineer):
 # isolate a private copy of Firmware/, optionally swap in a scratch entry
 # file, then hand off to the toolchain-specific build (Firmware/build.sh,
 # ca65/ld65 for this machine). It never touches the repo's rom/ folder or

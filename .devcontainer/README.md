@@ -12,13 +12,11 @@ This only work because three `runArgs` in `devcontainer.json`:
 - `--group-add=keep-groups` + `--device=/dev/dri` -- mean carry host `video`/`render` group membership in by GID, so SDL2 renderer get real GPU acceleration instead fall back to software (llvmpipe) rasterizer. In practice `--userns=keep-id` narrow id-range mapping squash extra host GIDs to overflow GID (confirm with `id` inside container), so this only work if `/dev/dri/renderD128` world-writable, like on tested host. If GPU accel silently fall back to llvmpipe on other machine, check that device permissions first.
 - `--security-opt=label=disable` -- skip SELinux relabel of bind-mounted `$XDG_RUNTIME_DIR`. Podman usual `:Z`/`:z` relabel would rewrite SELinux context of that directory in place, break every other app on host still use it.
 
-## Claude Code credentials
+## GitHub Copilot
 
-`~/.claude` and `~/.claude.json` (OAuth tokens, account/trust config, skills, memory) bind-mounted from host into `/home/dev/.claude` and `/home/dev/.claude.json` -- read-write, at runtime, never copy into image -- so Claude Code inside container already logged in, share history/memory with host instead need own login.
+The dev container installs the GitHub Copilot and Copilot Chat VS Code extensions. Sign in to GitHub through VS Code; credentials are not mounted into the container. Project instructions, skills and custom agents are kept in the repository.
 
-This mount *whole* `~/.claude` tree, include session transcripts and plans from other projects on host, not just credential files. That intentional tradeoff for full parity with host CLI/IDE experience (same auto-memory, same skills). If too broad, narrow mount in `devcontainer.json` to just two files that actually carry auth: `~/.claude/.credentials.json` and `~/.claude.json`.
-
-`.credentials.json` hold plaintext OAuth access/refresh token pair -- treat like any other secret.
+The host's `~/.copilot/copilot-instructions.md` and `~/.copilot/instructions/` are mounted read-only into the container for Copilot's user-level instructions. If missing, the host initialization command creates the file and directory before starting the container. Other Copilot state, including credentials and session logs, stays separate. Rebuild the container after changing this configuration, then start a new Copilot session. If the host's general instruction file is replaced rather than edited in place, rebuild the container to refresh its file mount.
 
 ## Podman
 

@@ -8,6 +8,12 @@
         }
     },
     "remoteUser": "dev",
+    // Bind mount sources must exist before the container starts.
+    "initializeCommand": [
+        "sh", "-c",
+        "if [ -z \"$1\" ]; then echo 'HOME must be set on the host' >&2; exit 1; fi; mkdir -p \"$1/.copilot/instructions\" && if [ ! -e \"$1/.copilot/copilot-instructions.md\" ]; then touch \"$1/.copilot/copilot-instructions.md\"; fi",
+        "sh", "${localEnv:HOME}"
+    ],
     // Rootless Podman: map the invoking host user onto the image's uid/gid
     // 1000 so it owns the bind-mounted Wayland socket below. keep-groups
     // carries host supplementary groups (video/render) into the container
@@ -26,17 +32,11 @@
     // directory in at identical paths, so WAYLAND_DISPLAY/DISPLAY resolve
     // the same way inside the container as outside it.
     //
-    // The last two mounts share the host's already-authenticated Claude
-    // Code login (OAuth tokens in ~/.claude/.credentials.json, account/
-    // trust config in ~/.claude.json) so the container doesn't need its
-    // own separate login. They're bind-mounted at runtime, never copied
-    // into the image, and land at /home/dev/* since the container user's
-    // $HOME differs from the host user's. See .devcontainer/README.md.
     "mounts": [
         "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind",
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-        "source=${localEnv:HOME}/.claude,target=/home/dev/.claude,type=bind",
-        "source=${localEnv:HOME}/.claude.json,target=/home/dev/.claude.json,type=bind"
+        "source=${localEnv:HOME}/.copilot/copilot-instructions.md,target=/home/dev/.copilot/copilot-instructions.md,type=bind,readonly",
+        "source=${localEnv:HOME}/.copilot/instructions,target=/home/dev/.copilot/instructions,type=bind,readonly"
     ],
     "containerEnv": {
         "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
@@ -79,7 +79,8 @@
                 "llvm-vs-code-extensions.vscode-clangd",
                 "ms-vscode.cmake-tools",
                 "ms-vscode.cpptools",
-                "Anthropic.claude-code",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
                 "tlgkccampbell.code-ca65",
                 "mshr-h.veriloghdl",
                 "kolnogorov.sjasmplus-code-lens"

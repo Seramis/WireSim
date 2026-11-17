@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a Z80Echo ROM directory -- the toolchain-agnostic half of the
-# firmware-build contract (see .claude/skills/machine-engineer): isolate a
+# firmware-build contract (see .github/skills/machine-engineer): isolate a
 # private copy of the sources, then hand off to the toolchain-specific build
 # (Firmware/build.sh, sjasmplus). Never touches the tracked Firmware/ directory.
 #

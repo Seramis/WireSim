@@ -1,6 +1,6 @@
 # MachineHarness
 
-Machine-level counterpart of [DeviceHarness](DeviceHarness.md). Boots one registered `Machine` from pre-built ROM directory, runs headless from small text script, asserts CPU + memory state instead of driving pins. See `.claude/skills/machine-engineer/SKILL.md` for where it fits when composing machine.
+Machine-level counterpart of [DeviceHarness](DeviceHarness.md). Boots one registered `Machine` from pre-built ROM directory, runs headless from small text script, asserts CPU + memory state instead of driving pins. See [machine-engineer](../../.github/skills/machine-engineer/SKILL.md) for where it fits when composing machine.
 
 ## Build & run
 

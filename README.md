@@ -10,7 +10,7 @@ The simulation is deliberately close to real hardware. Devices expose the same p
 
 ## How it came to be
 
-The author is a C# developer. The first version of the simulator, including a 6502 CPU and a 16C550 UART, was written entirely in C#. Experiments with C++ showed a potential of roughly twice the simulation speed, so the whole thing was redeveloped in C++. C# feels like a sweet language to work in, and C++ feels bitter, so this repository leans on Claude Code for the C++ work. It ships a set of skills and instructions (in `.claude/` and `AGENTS.md`) that let Claude build devices and machines from specifications and datasheets alone.
+The author is a C# developer. The first version of the simulator, including a 6502 CPU and a 16C550 UART, was written entirely in C#. Experiments with C++ showed a potential of roughly twice the simulation speed, so the whole thing was redeveloped in C++. The repository includes project instructions and skills for coding agents in [AGENTS.md](AGENTS.md) and [.github/skills/](.github/skills/), including workflows for building devices and machines from specifications and datasheets.
 
 ## What is in the box
 
@@ -61,12 +61,12 @@ Performance is the main concern of the engine, and this is why. Commit messages 
 
 ## How devices and machines are created today
 
-New hardware is added in two steps, each driven by a project skill in `.claude/skills/` and verified by its own harness. The rules those skills follow live in [AGENTS.md](AGENTS.md).
+New hardware is added in two steps, each driven by a project skill in [.github/skills/](.github/skills/) and verified by its own harness. The rules those skills follow live in [AGENTS.md](AGENTS.md).
 
-1. **Devices from datasheets.** Give Claude a datasheet (the PDFs in [docs/](docs/) are examples) and ask for the chip. The `device` skill writes it as a C++ `Sim::Device`, or as Verilog that is verilated and wrapped as a device. The `device-harness` skill then exercises the device through its pins with a `.devtest` script, with no CPU, ROM or machine involved. A device is considered done when its script passes. The same skill can add opt-in register and memory inspection so tests can read the device's state afterwards.
-2. **Machines from specifications.** Give Claude a specification of the computer, such as the component list, memory map, clock and reset topology and firmware toolchain (see [src/Machines/BenEater6502/specs/specification.md](src/Machines/BenEater6502/specs/specification.md) for an example). The `machine-engineer` skill wires already verified devices together with address-decode glue logic and firmware, and verifies the result with a `.machinetest` booted through `MachineHarness`.
+1. **Devices from datasheets.** Provide a datasheet (the PDFs in [docs/](docs/) are examples) and ask a coding agent to implement the chip. The `device` skill writes it as a C++ `Sim::Device`, or as Verilog that is verilated and wrapped as a device. The `device-harness` skill then exercises the device through its pins with a `.devtest` script, with no CPU, ROM or machine involved. A device is considered done when its script passes. The same skill can add opt-in register and memory inspection so tests can read the device's state afterwards.
+2. **Machines from specifications.** Provide a computer specification, such as the component list, memory map, clock and reset topology and firmware toolchain (see [src/Machines/BenEater6502/specs/specification.md](src/Machines/BenEater6502/specs/specification.md) for an example). The `machine-engineer` skill wires already verified devices together with address-decode glue logic and firmware, and verifies the result with a `.machinetest` booted through `MachineHarness`.
 
-For debugging, the `asm-test` skill runs a small 65C02 assembly program and reads back the trace and final CPU state. Debugging agents in `.claude/agents/` cover problems at the register level of a single device and in the wiring between chips.
+For debugging, the `asm-test` skill runs a small 65C02 assembly program and reads back the trace and final CPU state. The specialist agents in [.github/agents/](.github/agents/) cover problems at the register level of a single device and in the wiring between chips.
 
 ## Getting started
 

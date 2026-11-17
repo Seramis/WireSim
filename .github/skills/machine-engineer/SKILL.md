@@ -12,7 +12,7 @@ Skill **never create, edit or retrofit device**. Every component must already ex
 
 - **New machine:** follow every phase in order.
 - **Extending a machine:** wire one new peripheral into existing machine. Most of "Place" already done. Focus on `Chipset` decode change, machine's `AGENTS.md` memory map, new `.machinetest` section for peripheral's address range.
-- **Debugging a wiring-only symptom:** `.machinetest` assertion fails while every component's own `.devtest` passes, decoded address ranges overlap, or firmware memory map disagree with what `Chipset` decodes. Hand long session to `.claude/agents/machine-wiring-debugger.md`.
+- **Debugging a wiring-only symptom:** `.machinetest` assertion fails while every component's own `.devtest` passes, decoded address ranges overlap, or firmware memory map disagrees with what `Chipset` decodes. Use [.github/agents/machine-wiring-debugger.agent.md](../../agents/machine-wiring-debugger.agent.md).
 
 ## Required inputs
 

@@ -29,7 +29,7 @@ Performance: main goal here. Commit subjects show measured half-cycle rate (e.g.
 - [docs/](docs/): datasheets for devices built in this repo.
 - Per-component `.md` files sit next to code (see "Repository map"). Check component's dir for one before trusting comments or guessing from source.
 
-Skills in `.claude/skills/`:
+Project skills in `.github/skills/`:
 
 | Skill | Use it to |
 | --- | --- |
@@ -115,6 +115,6 @@ Details in [overview.md](overview.md).
 - Don't infer bus timing from adjacent log lines. Correlate by `h=` counter, address, RWB and enables.
 - Report verification honestly. For device, give exact `.devtest` script (or inline commands) and pass/fail count. For machine-level work, give exact program, cycle count and observed final state.
 - `MachineHarness` checks final state after bulk `run <N>`; never correlates behavior cycle by cycle (see `MachineHarness.md`). Use `.machinetest` for "does this stay correct" regression coverage, trace-based tools (`sim-run.sh`, `asm-test`, `cycle-delta.sh`) for "why is this wrong" root-cause work.
-- Specialized debugging agents (Claude Code: `.claude/agents/`; Copilot: `.github/agents/`):
+- Specialized debugging agents in `.github/agents/`:
   - Device implementation, audit and register/pin-level bugs, CPUs included (any architecture): `device-debugger`, verified with `DeviceHarness` (`device`, `device-harness` skills).
-  - Whole-machine wiring bugs (address decode, enable fan-out, reset/interrupt wiring across chips): `machine-wiring-debugger` (Claude Code only), reproduced first w/ a `.machinetest` script.
+  - Whole-machine wiring bugs (address decode, enable fan-out, reset/interrupt wiring across chips): `machine-wiring-debugger`, reproduced first w/ a `.machinetest` script.
