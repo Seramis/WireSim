@@ -55,6 +55,10 @@
                     "--background-index",
                     "--header-insertion=never"
                 ],
+                "[cpp]": {
+                    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+                    "editor.formatOnSave": true
+                },
                 // Presets in CMakePresets.json; the status-bar Debug button
                 // launches the selected target under gdb.
                 "cmake.useCMakePresets": "always",
