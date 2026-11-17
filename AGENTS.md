@@ -61,7 +61,7 @@ cmake --preset debug                            # once, and after adding files
 cmake --build --preset debug                    # executables, harnesses, all firmware variants
 cmake --build --preset debug --target check     # build, then ctest: every .devtest and .machinetest
 build/debug/BenEater6502 --cycles 1000      # BenEater6502
-build/debug/WireSim --cycles 1000              # My6502
+build/debug/My6502 --cycles 1000               # My6502
 ```
 
 Each firmware variant also has a `run_<Machine>_<variant>` target (`cmake --build --preset release --target run_Z80Retro_cpm`, or "CMake: Build Target" in VS Code) that builds and runs the machine in the terminal.

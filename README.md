@@ -85,9 +85,20 @@ Steps:
 1. Clone the repository and fetch the BASIC sources: `git clone <url>` then `git submodule update --init`.
 2. Open the folder in VS Code and run **Dev Containers: Reopen in Container**. The first build of the image takes a while.
 3. Open the CMake Tools panel in the status bar. Choose the `debug` or `release` configure preset (use `release` for speed).
-4. Select `BenEater6502` as the launch target and press **Build**.
+4. Open the Command Palette and run **CMake: Set Build and Launch/Debug Target**. Select `BenEater6502`, then press **Build**.
 5. Press the **Run** button to start the machine, or the **Debug** button to run it under gdb with C++ breakpoints.
 6. Open a terminal in VS Code and connect to the serial console (see [Using BenEater6502](#using-beneater6502) below).
+
+To switch machines, stop the running simulator, run **CMake: Set Build and Launch/Debug Target** again, and select the target for the machine you want:
+
+| Machine | Target | Default firmware variant |
+| --- | --- | --- |
+| BenEater6502 | `BenEater6502` | `basic` |
+| My6502 | `My6502` | `kernel` |
+| Z80Echo | `Z80Echo` | `echo` |
+| Z80Retro | `Z80Retro` | `cpm` |
+
+Use the CMake Tools **Run** or **Debug** button to start the selected target. Building a machine target also builds its available firmware variants. To debug a non-default variant, add `"args": ["--variant", "NAME"]` to `cmake.debugConfig` in the workspace settings; remove or update it when switching machines.
 
 ### Option 2: Command line
 

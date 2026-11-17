@@ -32,11 +32,11 @@ Print `DIR/rom/My6502` on success. `DIR/obj/` hold assembler listing.
 **Interactive / IDE:** CMake build and assemble three ROM variant next to executable, as `build/<preset>/rom/My6502-<variant>`: `kernel` (default), `debug` (`debug.asm` with cycle-tagged trace) and `machinetest` (see `machine.cmake`).
 
 ```bash
-cmake --preset debug && cmake --build --preset debug --target WireSim
-build/debug/WireSim --variant debug --cycles 1000       # traced debug.asm; or --rom DIR; any working directory
+cmake --preset debug && cmake --build --preset debug --target My6502
+build/debug/My6502 --variant debug --cycles 1000       # traced debug.asm; or --rom DIR; any working directory
 ```
 
-In VS Code, use CMake Tools Debug button with `WireSim` as launch target. Add `--variant debug` to `cmake.debugConfig.args` to debug traced `debug.asm` instead of kernel.
+In VS Code, use CMake Tools Debug button with `My6502` as launch target. Add `--variant debug` to `cmake.debugConfig.args` to debug traced `debug.asm` instead of kernel.
 
 ld65 "Segment '…' does not exist" warning expected.
 
@@ -44,7 +44,7 @@ ld65 "Segment '…' does not exist" warning expected.
 
 **Runtime gotcha:**
 
-- `WireSim` **exit soon as stdin hit EOF**, so `< /dev/null` or closed pipe end run right away. Keep stdin open (script use FIFO) and always pass `--cycles`.
+- `My6502` **exit soon as stdin hit EOF**, so `< /dev/null` or closed pipe end run right away. Keep stdin open (script use FIFO) and always pass `--cycles`.
 - Interactive key: `s` print counter, rate and CPU snapshot; `r` hold reset low 10 half-cycle; `g` open MRDI-1 graphics window (no-op if already open; can close/reopen); `l` open LED/switchbox window; `q` quit. BRK run normal 65C02 interrupt sequence, do not stop simulator.
 - Startup fail with "ROM debug-mode marker missing" if ROM directory stale or empty. Rebuild with `cmake --build --preset <preset>`.
 - If port 20021 busy, UART TCP server silent not start, but simulation still run.

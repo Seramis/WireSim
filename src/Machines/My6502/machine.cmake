@@ -2,7 +2,7 @@
 # cycle-tagged tracing, and the .machinetest wiring-regression image. See the wiresim_add_machine()/
 # wiresim_add_firmware() documentation in the top-level CMakeLists.txt.
 wiresim_add_machine(My6502
-    EXECUTABLE WireSim
+    EXECUTABLE My6502
     HEADER Machines/My6502/My6502.hpp
     DEFAULT_VARIANT kernel
     DIR ${CMAKE_CURRENT_LIST_DIR}

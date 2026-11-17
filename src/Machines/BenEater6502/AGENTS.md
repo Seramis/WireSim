@@ -15,7 +15,7 @@ src/Machines/BenEater6502/scripts/build-firmware.sh -t -o DIR    # the wiring-te
 
 `scripts/build-firmware.sh` copy `vendor/msbasic` to private work dir, call `Firmware/build.sh` (ca65/ld65). msbasic pick target with **lowercase** define (`ca65 -D eater`); `-D EATER` build wrong thing. No scratch entry file: firmware is vendored image. `-t` assemble `Firmware/machinetest.s` instead.
 
-`BenEater6502` is interactive binary (separate target from `WireSim`, two machine headers cannot share one translation unit). CMake assemble firmware when build it, to `build/<preset>/rom/BenEater6502-basic` (default `--variant`) and `-machinetest`. `--rom DIR` load hand-built directory.
+`BenEater6502` is interactive binary (separate target from `My6502`, two machine headers cannot share one translation unit). CMake assemble firmware when build it, to `build/<preset>/rom/BenEater6502-basic` (default `--variant`) and `-machinetest`. `--rom DIR` load hand-built directory.
 
 ```bash
 cmake --build --preset release --target BenEater6502

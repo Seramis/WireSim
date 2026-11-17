@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Headless build + assemble + run helper for agents and CI-style use.
 #
-# Builds WireSim (CMake preset debug/release), assembles a ROM into an isolated
+# Builds My6502 (CMake preset debug/release), assembles a ROM into an isolated
 # work directory and runs the simulator there with a cycle limit. It never touches the repo's rom/ folder,
 # the My6502 Firmware/debug.asm, or the generated listings under Firmware/.
 #
@@ -55,11 +55,11 @@ if [[ $BUILD -eq 1 ]]; then
 	if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]]; then
 		cmake --preset "${BUILD_TYPE,,}" -S "$ROOT" >&2
 	fi
-	cmake --build --preset "${BUILD_TYPE,,}" --target WireSim >&2
+	cmake --build --preset "${BUILD_TYPE,,}" --target My6502 >&2
 fi
 
 # 2. Assemble, via the toolchain-agnostic/toolchain-specific split
-#    (build-firmware.sh + Firmware/build.sh -- see .claude/skills/machine-engineer).
+#    (build-firmware.sh + Firmware/build.sh -- see .github/skills/machine-engineer).
 #    Reuses this same $OUT, so its private Firmware/ copy and obj/ listings
 #    land exactly where this script already documents them.
 if [[ $KERNEL -eq 1 ]]; then
@@ -70,12 +70,12 @@ else
 	"$SCRIPT_DIR/build-firmware.sh" -o "$OUT" >/dev/null
 fi
 
-# 3. Run. WireSim quits on stdin EOF, so hold stdin open with a FIFO.
+# 3. Run. My6502 quits on stdin EOF, so hold stdin open with a FIFO.
 #    The cd keeps debug_writer.log and friends inside the work directory.
 mkfifo "$OUT/stdin"
 exec 3<>"$OUT/stdin"
 set +e
-(cd "$OUT" && "$BUILD_DIR/WireSim" --rom "$OUT/rom/My6502" --cycles "$CYCLES" <&3) 2>&1 | tee "$OUT/trace.log"
+(cd "$OUT" && "$BUILD_DIR/My6502" --rom "$OUT/rom/My6502" --cycles "$CYCLES" <&3) 2>&1 | tee "$OUT/trace.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 exec 3>&-

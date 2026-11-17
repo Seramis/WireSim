@@ -116,7 +116,7 @@ foreach(MANIFEST IN LISTS MANIFEST_FILES)
 endforeach()
 
 # 4. Shared OBJECT libraries
-# WireSim, DeviceHarness and MachineHarness overlap heavily in which sources
+# Machine executables, DeviceHarness and MachineHarness overlap heavily in which sources
 # they need (the engine, the devices, Support). Previously each target ran
 # its own file(GLOB_RECURSE ...) straight into its own add_executable(),
 # so identical TUs (e.g. Platform.cpp) were compiled three times over, once
@@ -149,7 +149,7 @@ target_include_directories(DevicesCore PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(DevicesCore PRIVATE SDL2::SDL2)
 
 # DeviceHarness/MachineHarness registration shims (<Name>.harness.cpp):
-# shared by DeviceHarness and MachineHarness, but not WireSim, which has no
+# shared by DeviceHarness and MachineHarness, but not machine executables, which have no
 # need to depend on src/Testing/.
 file(GLOB_RECURSE DEVICE_HARNESS_SHIM_SOURCES "src/Devices/*.harness.cpp")
 add_library(DeviceHarnessShims OBJECT ${DEVICE_HARNESS_SHIM_SOURCES})
@@ -167,7 +167,7 @@ if(DEVICE_LIBS)
 endif()
 
 # Machine-specific glue (e.g. Chipset), excluding each machine's own
-# MachineHarness registration shim. Shared by WireSim and MachineHarness,
+# MachineHarness registration shim. Shared by machine executables and MachineHarness,
 # not DeviceHarness (no machine involved there). Currently empty (the only
 # file under src/Machines/*.cpp is a machine-harness shim) but kept for any
 # future machine's non-shim .cpp; file(GLOB_RECURSE) matching nothing is not
@@ -360,7 +360,7 @@ endforeach()
 
 # 6. DeviceHarness: exercises one Sim::Device at a time, standalone, through
 # a text script (see src/Testing/DeviceHarness.md) -- no CPU, ROM, or Chipset
-# needed. Shares the engine and device libraries with WireSim, but not
+# needed. Shares the engine and device libraries with machine executables, but not
 # src/Machines (no machine involved) or Main.cpp (its own entry point).
 add_executable(DeviceHarness src/Testing/HarnessMain.cpp)
 
