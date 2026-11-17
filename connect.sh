@@ -42,12 +42,26 @@ while true; do
         dots_printed=0
     fi
 
-    # Run socat
-    # raw,echo=0 passes every key through, Ctrl+C included (0x03 stops MS BASIC).
-    # icrnl turns Enter (CR) into LF, the line ending the simulated machines expect.
-    # escape=0x04 (Ctrl+D) exits the current socat session.
-    # Bound connection attempts without disconnecting an idle, established session.
-    socat STDIO,raw,echo=0,icrnl,escape=0x04 TCP:localhost:"$PORT",connect-timeout=1 2>/dev/null
+    # TcpTerminal sends a greeting on accept. A port forwarder can accept a TCP
+    # connection even when no simulator is listening, so also bound the wait for
+    # the first output. Once output arrives, an idle session stays connected.
+    # raw,echo=0 passes Ctrl+C through; icrnl translates Enter; Ctrl+D disconnects.
+    coproc SESSION {
+        exec socat 'FD:0,raw,echo=0,icrnl,escape=0x04!!FD:1' TCP:localhost:"$PORT",connect-timeout=1 </dev/tty 2>/dev/null
+    }
+    session_pid=$SESSION_PID
+    exec {session_output}<&"${SESSION[0]}"
+    session_input=${SESSION[1]}
+    exec {session_input}>&-
+
+    if IFS= read -r -N 1 -t 3 -u "$session_output" first_byte; then
+        printf '%s' "$first_byte"
+        cat <&"$session_output"
+    else
+        kill "$session_pid" 2>/dev/null || true
+    fi
+    exec {session_output}<&-
+    wait "$session_pid"
     exit_code=$?
 
     # socat returns exit code 0 when connected and closed normally.

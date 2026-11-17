@@ -145,7 +145,7 @@ The computer's serial port (the W65C51N ACIA) is exposed as a TCP server on port
 ./connect.sh 20022
 ```
 
-`connect.sh` keeps reconnecting if the simulator restarts. Ctrl+C is sent to the computer (it stops a running BASIC program) and Ctrl+D disconnects. If you prefer, `socat - TCP:localhost:20022` works as a plain connection.
+`connect.sh` keeps reconnecting if the simulator restarts. It retries connections that produce no output within three seconds, including connections accepted by a port forwarder when the simulator is absent. Once output arrives, the console can remain idle indefinitely. Ctrl+C is sent to the computer (it stops a running BASIC program) and Ctrl+D disconnects. If you prefer, `socat - TCP:localhost:20022` works as a plain connection.
 
 ### 3. Talk to the computer
 
@@ -175,7 +175,8 @@ The fast loop this project exists for is: edit assembly, rebuild, run. Firmware 
 
 - **Devices**: each device may ship a `.devtest` script that drives its pins directly through `DeviceHarness` ([src/Testing/DeviceHarness.md](src/Testing/DeviceHarness.md)). Scripts can define macros (`def <name> ... end`, positional `$0`, `$1`... arguments) for repeated sequences; `.machinetest` scripts support them too.
 - **Machines**: a `.machinetest` script boots a machine from a pre-built ROM headless and asserts CPU and memory state through `MachineHarness` ([src/Testing/MachineHarness.md](src/Testing/MachineHarness.md)).
-- Run all of them with `cmake --build --preset release --target check`.
+- **Console helper**: `python3 scripts/test-connect.py` tests reconnection and terminal input with `socat`.
+- Run device and machine tests with `cmake --build --preset release --target check`.
 
 ## Further reading
 
